@@ -1,0 +1,7 @@
+- replace template name
+- write serializers for the global state, that way we continue working on large collections of pictures in multiple sessions
+- save the state per photo_dir
+- fix the nested folder bug. Basically if the folder we select has folders we are crashing
+- add support for grouping RAW and JPG
+- add support for grouping burst shots
+- write actual culling commit flow
