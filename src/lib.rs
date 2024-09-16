@@ -56,10 +56,12 @@ fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
     proccessed_image_destination.push(image.image_name.clone());
     let _ = fs::copy(image.path_processed.clone(), proccessed_image_destination);
 
+    println!("{}", image.path_raw.clone().unwrap().display());
     match &image.path_raw {
         Some(path_raw) => {
             let mut raw_image_destination = destination_dir.clone();
             raw_image_destination.push(image.image_name.clone());
+            raw_image_destination.set_extension("RAF");
             let _ = fs::copy(path_raw.clone(), raw_image_destination);
         },
         None => {},
@@ -67,11 +69,24 @@ fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
     
 }
 
-fn get_raw_variant(mut processed_path: PathBuf) -> Option<PathBuf> {
-    if processed_path.pop() {
-        processed_path.push(".RAF");
-        return Some(processed_path);
-    } else {
-        return None;
+fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {
+    let mut raw_path = processed_path.clone();
+    match raw_path.set_extension("RAF"){
+        true => Some(raw_path),
+        false => None,
+    }
+        
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_raw_variant() {
+        let path = PathBuf::from("/tmp/DSC55555.jpg");
+        let raw_variant = get_raw_variant(&path).unwrap();
+        assert_eq!("RAF",raw_variant.extension().unwrap())
     }
 }

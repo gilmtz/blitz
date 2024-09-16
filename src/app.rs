@@ -261,7 +261,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
 
                             let image_info = ImageInfo {
                                 path_processed: x.path().clone(),
-                                path_raw: get_raw_variant(x.path().clone()),
+                                path_raw: get_raw_variant(&x.path()),
                                 rating: Rating::Skip,
                                 texture: Arc::new(Mutex::new(None)),
                                 image_name: filename,
