@@ -14,7 +14,6 @@ use egui::{ColorImage, Key, Vec2};
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-
     #[serde(skip)] // This how you opt-out of serialization of a field
     photos_index: usize,
 
@@ -28,7 +27,7 @@ pub struct TemplateApp {
 #[derive(Clone)]
 pub struct ImageInfo {
     path_processed: PathBuf,
-    path_raw: Option<PathBuf>, 
+    path_raw: Option<PathBuf>,
     rating: Rating,
     texture: Arc<Mutex<Option<egui::TextureHandle>>>,
     image_name: String,
@@ -100,22 +99,64 @@ impl eframe::App for TemplateApp {
         });
 
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
-            ui.label("left panell");
+            ui.label("Queue");
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                if self.photos.len() > 0 {
+                    for photo in self.photos.iter() {
+                        match photo.read().unwrap().rating {
+                            Rating::Skip => {
+                                let texture_mutex = photo.read().unwrap().texture.clone();
+                                match texture_mutex.try_lock() {
+                                    Ok(texture_handle) => {
+                                        match *texture_handle {
+                                            Some(ref texture) => {
+                                                ui.image((texture.id(), Vec2::new(100.0, 100.0)))
+                                            }
+                                            None => ui.label("texture not ready"),
+                                        };
+                                    }
+                                    Err(_) => {}
+                                };
+                            }
+                            Rating::Approve => {}
+                            Rating::Remove => {}
+                        }
+                    }
+                }
+            });
         });
 
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
-            ui.label("right panel");
+            ui.label("Keep");
+
+            if self.photos.len() > 0 {
+                for photo in self.photos.iter().rev() {
+                    match photo.read().unwrap().rating {
+                        Rating::Skip => {}
+                        Rating::Approve => {
+                            let texture_mutex = photo.read().unwrap().texture.clone();
+                            match texture_mutex.try_lock() {
+                                Ok(texture_handle) => {
+                                    match *texture_handle {
+                                        Some(ref texture) => {
+                                            ui.image((texture.id(), Vec2::new(100.0, 100.0)))
+                                        }
+                                        None => ui.label("texture not ready"),
+                                    };
+                                }
+                                Err(_) => {}
+                            };
+                        }
+                        Rating::Remove => {}
+                    }
+                }
+            }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
-
-            let mut show_deferred_viewport = self.show_deferred_viewport.load(Ordering::Relaxed);
-            ui.checkbox(&mut show_deferred_viewport, "Show deferred child viewport");
-            self.show_deferred_viewport
-                .store(show_deferred_viewport, Ordering::Relaxed);
-
 
             if ui.button("Open folder…").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
@@ -132,7 +173,7 @@ impl eframe::App for TemplateApp {
             }
 
             if ui.button("Commit choices").clicked() {
-                
+                commit_culling(&self.photos, self.photo_dir.clone());
             }
 
             if ctx.input(|i| i.key_pressed(Key::D)) {
@@ -153,12 +194,19 @@ impl eframe::App for TemplateApp {
             }
 
             if self.photos.len() > 0 {
-                let texture_mutex = self.photos[self.photos_index].read().unwrap().texture.clone();
+                let texture_mutex = self.photos[self.photos_index]
+                    .read()
+                    .unwrap()
+                    .texture
+                    .clone();
                 match texture_mutex.try_lock() {
                     Ok(texture_handle) => {
                         match *texture_handle {
-                            Some(ref texture) => ui.image((texture.id(), Vec2::new(1000.0, 1000.0))),
-                            None => ui.label("texture not ready")
+                            Some(ref texture) => {
+                                ui.add(egui::Image::new(texture).max_width(1000.0))
+                                // ui.image((texture.id(), Vec2::new(1000.0, 1000.0)))
+                            }
+                            None => ui.label("texture not ready"),
                         };
                     }
                     Err(_) => {}
@@ -220,7 +268,7 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
 
 fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>>) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
-    for path in paths.take(500) {
+    for path in paths.take(50) {
         match path {
             Ok(ref x) => {
                 let file_extension = match x.path().extension() {
@@ -228,17 +276,11 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
                     None => todo!("need to handle when we can't get the file extension"),
                 };
                 if file_extension == "JPG" {
-                    let filename = x
-                        .path()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
+                    let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
 
                     let image_info = ImageInfo {
                         path_processed: x.path().clone(),
-                        path_raw: None,
+                        path_raw: get_raw_variant(x.path().clone()),
                         rating: Rating::Skip,
                         texture: Arc::new(Mutex::new(None)),
                         image_name: filename,
@@ -248,6 +290,15 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
             }
             Err(_) => todo!("need to handle when the path errors out"),
         }
+    }
+}
+
+fn get_raw_variant(mut processed_path: PathBuf) -> Option<PathBuf> {
+    if processed_path.pop() {
+        processed_path.push(".RAF");
+        return Some(processed_path);
+    } else {
+        return None;
     }
 }
 
@@ -261,7 +312,10 @@ fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: &egui:
 
         let texture_handle = match image_data {
             Ok(color_image) => {
-                let texture_id = image_info.read().unwrap().path_processed
+                let texture_id = image_info
+                    .read()
+                    .unwrap()
+                    .path_processed
                     .clone()
                     .as_mut_os_str()
                     .to_str()
@@ -291,7 +345,12 @@ fn go_to_next_picture(template_app: &mut TemplateApp) {
         if template_app.photos_index >= template_app.photos.len() {
             template_app.photos_index = 0
         }
-        if template_app.photos[template_app.photos_index].read().unwrap().rating == Rating::Skip {
+        if template_app.photos[template_app.photos_index]
+            .read()
+            .unwrap()
+            .rating
+            == Rating::Skip
+        {
             break;
         }
         if starting_index == template_app.photos_index {
@@ -308,7 +367,7 @@ fn go_to_previous_picture(template_app: &mut TemplateApp) {
     template_app.photos_index -= 1;
 }
 
-fn commit_culling(photo_dir: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
+fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
     let mut chaffe_dir = root_dir.clone();
     chaffe_dir.push("chaffe");
     let mut wheat_dir = root_dir.clone();
@@ -324,7 +383,7 @@ fn commit_culling(photo_dir: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
         Err(_err) => todo!("handle when we can't make directories later"),
     };
 
-    for image in photo_dir.iter() {
+    for image in photos.iter() {
         match image.read().unwrap().rating {
             Rating::Skip => {}
             Rating::Approve => {
