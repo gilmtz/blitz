@@ -1,14 +1,13 @@
 use std::{
-    fs::{self},
-    path::PathBuf,
-    sync::{
+    any::Any, fs::{self}, path::PathBuf, sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, RwLock,
-    },
-    thread,
+    }, thread
 };
 
 use egui::{ColorImage, Key, Vec2};
+
+use crate::{commit_culling, get_raw_variant, ImageInfo, Rating};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -22,22 +21,6 @@ pub struct TemplateApp {
 
     photo_dir: PathBuf,
     show_deferred_viewport: Arc<AtomicBool>,
-}
-
-#[derive(Clone)]
-pub struct ImageInfo {
-    path_processed: PathBuf,
-    path_raw: Option<PathBuf>,
-    rating: Rating,
-    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
-    image_name: String,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum Rating {
-    Skip,
-    Approve,
-    Remove,
 }
 
 impl Default for TemplateApp {
@@ -66,19 +49,8 @@ impl TemplateApp {
 
         Default::default()
     }
-}
 
-impl eframe::App for TemplateApp {
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
+    fn update_top_panel(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -97,7 +69,9 @@ impl eframe::App for TemplateApp {
                 egui::widgets::global_dark_light_mode_buttons(ui);
             });
         });
+    }
 
+    fn update_left_panel(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
             ui.label("Queue");
 
@@ -126,7 +100,9 @@ impl eframe::App for TemplateApp {
                 }
             });
         });
+    }
 
+    fn update_right_panel(&mut self, ctx: &egui::Context) {
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
             ui.label("Keep");
 
@@ -153,45 +129,71 @@ impl eframe::App for TemplateApp {
                 }
             }
         });
+    }
+
+    fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+
+        if ui.button("Open folder…").clicked() {
+            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                self.photo_dir = path;
+                init_photos_state(self.photo_dir.clone(), &mut self.photos);
+
+                let mut photos = (&self.photos).to_owned();
+                let thread_ctx = ui.ctx().clone();
+
+                let _handler = thread::spawn(move || {
+                    load_images_into_memory(&mut photos, &thread_ctx);
+                });
+            }
+        }
+
+        if ui.button("Commit choices").clicked() {
+            commit_culling(&self.photos, self.photo_dir.clone());
+        }
+
+        if ctx.input(|i| i.key_pressed(Key::D)) {
+            go_to_next_picture(self);
+        }
+
+        if ctx.input(|i| i.key_pressed(Key::A)) {
+            go_to_previous_picture(self)
+        }
+
+        if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
+            self.photos[self.photos_index].write().unwrap().rating = Rating::Remove;
+            go_to_next_picture(self);
+        }
+        if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
+            self.photos[self.photos_index].write().unwrap().rating = Rating::Approve;
+            go_to_next_picture(self);
+        }
+
+    }
+
+}
+
+impl eframe::App for TemplateApp {
+    /// Called by the frame work to save state before shutdown.
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
+
+    /// Called each time the UI needs repainting, which may be many times per second.
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
+        // For inspiration and more examples, go to https://emilk.github.io/egui
+
+        self.update_top_panel(ctx);
+
+        self.update_left_panel(ctx);
+
+        self.update_right_panel(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
 
-            if ui.button("Open folder…").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.photo_dir = path;
-                    init_photos_state(self.photo_dir.clone(), &mut self.photos);
-
-                    let mut photos = (&self.photos).to_owned();
-                    let thread_ctx = ui.ctx().clone();
-
-                    let _handler = thread::spawn(move || {
-                        load_images_into_memory(&mut photos, &thread_ctx);
-                    });
-                }
-            }
-
-            if ui.button("Commit choices").clicked() {
-                commit_culling(&self.photos, self.photo_dir.clone());
-            }
-
-            if ctx.input(|i| i.key_pressed(Key::D)) {
-                go_to_next_picture(self);
-            }
-
-            if ctx.input(|i| i.key_pressed(Key::A)) {
-                go_to_previous_picture(self)
-            }
-
-            if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-                self.photos[self.photos_index].write().unwrap().rating = Rating::Remove;
-                go_to_next_picture(self);
-            }
-            if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-                self.photos[self.photos_index].write().unwrap().rating = Rating::Approve;
-                go_to_next_picture(self);
-            }
+            self.handle_user_input(ctx, ui);
 
             if self.photos.len() > 0 {
                 let texture_mutex = self.photos[self.photos_index]
@@ -211,30 +213,6 @@ impl eframe::App for TemplateApp {
                     }
                     Err(_) => {}
                 };
-            }
-
-            if self.show_deferred_viewport.load(Ordering::Relaxed) {
-                let show_deferred_viewport = self.show_deferred_viewport.clone();
-                ctx.show_viewport_deferred(
-                    egui::ViewportId::from_hash_of("deferred_viewport"),
-                    egui::ViewportBuilder::default()
-                        .with_title("Deferred Viewport")
-                        .with_inner_size([200.0, 100.0]),
-                    move |ctx, class| {
-                        assert!(
-                            class == egui::ViewportClass::Deferred,
-                            "This egui backend doesn't support multiple viewports"
-                        );
-
-                        egui::CentralPanel::default().show(ctx, |ui| {
-                            ui.label("Hello from deferred viewport");
-                        });
-                        if ctx.input(|i| i.viewport().close_requested()) {
-                            // Tell parent to close us.
-                            show_deferred_viewport.store(false, Ordering::Relaxed);
-                        }
-                    },
-                );
             }
 
             ui.separator();
@@ -271,34 +249,32 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
     for path in paths.take(50) {
         match path {
             Ok(ref x) => {
-                let file_extension = match x.path().extension() {
-                    Some(extension) => extension.to_owned(),
-                    None => todo!("need to handle when we can't get the file extension"),
-                };
-                if file_extension == "JPG" {
-                    let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
+                match x.path().is_file(){
+                    false => {}, // TODO: handle folders recursively?
+                    true => {
+                        let file_extension = match x.path().extension() {
+                            Some(extension) => extension.to_owned(),
+                            None => todo!("need to handle when we can't get the file extension"),
+                        };
+                        if file_extension == "JPG" {
+                            let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
 
-                    let image_info = ImageInfo {
-                        path_processed: x.path().clone(),
-                        path_raw: get_raw_variant(x.path().clone()),
-                        rating: Rating::Skip,
-                        texture: Arc::new(Mutex::new(None)),
-                        image_name: filename,
-                    };
-                    photos.push(Arc::new(RwLock::new(image_info)));
+                            let image_info = ImageInfo {
+                                path_processed: x.path().clone(),
+                                path_raw: get_raw_variant(x.path().clone()),
+                                rating: Rating::Skip,
+                                texture: Arc::new(Mutex::new(None)),
+                                image_name: filename,
+                            };
+                            photos.push(Arc::new(RwLock::new(image_info)));
+                        }
+                    },
                 }
+
+
             }
             Err(_) => todo!("need to handle when the path errors out"),
         }
-    }
-}
-
-fn get_raw_variant(mut processed_path: PathBuf) -> Option<PathBuf> {
-    if processed_path.pop() {
-        processed_path.push(".RAF");
-        return Some(processed_path);
-    } else {
-        return None;
     }
 }
 
@@ -365,49 +341,4 @@ fn go_to_previous_picture(template_app: &mut TemplateApp) {
         template_app.photos_index = template_app.photos.len() - 1
     }
     template_app.photos_index -= 1;
-}
-
-fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
-    let mut chaffe_dir = root_dir.clone();
-    chaffe_dir.push("chaffe");
-    let mut wheat_dir = root_dir.clone();
-    wheat_dir.push("wheat");
-
-    match fs::create_dir(chaffe_dir.clone()) {
-        Ok(it) => it,
-        Err(_err) => todo!("handle when we can't make directories later"),
-    };
-
-    match fs::create_dir(wheat_dir.clone()) {
-        Ok(it) => it,
-        Err(_err) => todo!("handle when we can't make directories later"),
-    };
-
-    for image in photos.iter() {
-        match image.read().unwrap().rating {
-            Rating::Skip => {}
-            Rating::Approve => {
-                copy_image_into_dir(&wheat_dir, &image.read().unwrap())
-            }
-            Rating::Remove => {
-                copy_image_into_dir(&chaffe_dir, &image.read().unwrap())
-            }
-        }
-    }
-}
-
-fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
-    let mut proccessed_image_destination = destination_dir.clone();
-    proccessed_image_destination.push(image.image_name.clone());
-    let _ = fs::copy(image.path_processed.clone(), proccessed_image_destination);
-
-    match &image.path_raw {
-        Some(path_raw) => {
-            let mut raw_image_destination = destination_dir.clone();
-            raw_image_destination.push(image.image_name.clone());
-            let _ = fs::copy(path_raw.clone(), raw_image_destination);
-        },
-        None => {},
-    }
-    
 }
