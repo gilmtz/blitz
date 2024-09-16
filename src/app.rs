@@ -387,15 +387,27 @@ fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
         match image.read().unwrap().rating {
             Rating::Skip => {}
             Rating::Approve => {
-                let mut destination = wheat_dir.clone();
-                destination.push(image.read().unwrap().image_name.clone());
-                let _ = fs::copy(image.read().unwrap().path_processed.clone(), destination);
+                copy_image_into_dir(&wheat_dir, &image.read().unwrap())
             }
             Rating::Remove => {
-                let mut destination = chaffe_dir.clone();
-                destination.push(image.read().unwrap().image_name.clone());
-                let _ = fs::copy(image.read().unwrap().path_processed.clone(), destination);
+                copy_image_into_dir(&chaffe_dir, &image.read().unwrap())
             }
         }
     }
+}
+
+fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
+    let mut proccessed_image_destination = destination_dir.clone();
+    proccessed_image_destination.push(image.image_name.clone());
+    let _ = fs::copy(image.path_processed.clone(), proccessed_image_destination);
+
+    match &image.path_raw {
+        Some(path_raw) => {
+            let mut raw_image_destination = destination_dir.clone();
+            raw_image_destination.push(image.image_name.clone());
+            let _ = fs::copy(path_raw.clone(), raw_image_destination);
+        },
+        None => {},
+    }
+    
 }
