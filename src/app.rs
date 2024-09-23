@@ -78,16 +78,21 @@ impl TemplateApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if self.photos.len() > 0 {
                     for photo in self.photos.iter() {
-                        match photo.read().unwrap().rating {
+                        let owned_photo = photo.read().unwrap();
+                        match owned_photo.rating {
                             Rating::Skip => {
                                 let texture_mutex = photo.read().unwrap().texture.clone();
                                 match texture_mutex.try_lock() {
                                     Ok(texture_handle) => {
                                         match *texture_handle {
                                             Some(ref texture) => {
-                                                ui.image((texture.id(), Vec2::new(100.0, 100.0)))
+                                                ui.image((texture.id(), Vec2::new(100.0, 100.0)));
+                                                ui.label(owned_photo.image_name.clone());
                                             }
-                                            None => ui.label("texture not ready"),
+                                            None => {
+                                                let label = ui.label("texture not ready");
+                                                drop(label);
+                                            },
                                         };
                                     }
                                     Err(_) => {}
@@ -134,17 +139,7 @@ impl TemplateApp {
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
 
         if ui.button("Open folder…").clicked() {
-            if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                self.photo_dir = path;
-                init_photos_state(self.photo_dir.clone(), &mut self.photos);
-
-                let mut photos = (&self.photos).to_owned();
-                let thread_ctx = ui.ctx().clone();
-
-                let _handler = thread::spawn(move || {
-                    load_images_into_memory(&mut photos, &thread_ctx);
-                });
-            }
+            self.open_folder_action(ctx, ui);
         }
 
         if ui.button("Commit choices").clicked() {
@@ -170,6 +165,19 @@ impl TemplateApp {
 
     }
 
+    fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui){
+        if let Some(path) = rfd::FileDialog::new().pick_folder() {
+            self.photo_dir = path;
+            init_photos_state(self.photo_dir.clone(), &mut self.photos);
+
+            let mut photos = (&self.photos).to_owned();
+            let thread_ctx = ui.ctx().clone();
+
+            let _handler = thread::spawn(move || {
+                load_images_into_memory(&mut photos, &thread_ctx);
+            });
+        }
+    }
 }
 
 impl eframe::App for TemplateApp {
