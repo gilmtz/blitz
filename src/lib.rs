@@ -5,15 +5,18 @@ use std::{fs, path::PathBuf, sync::{Arc, Mutex, RwLock}};
 
 pub use app::TemplateApp;
 
+#[derive(serde::Deserialize, serde::Serialize)]
 #[derive(Clone)]
 pub struct ImageInfo {
     path_processed: PathBuf,
     path_raw: Option<PathBuf>,
     rating: Rating,
+    #[serde(skip)]
     texture: Arc<Mutex<Option<egui::TextureHandle>>>,
     image_name: String,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Rating {
     Skip,

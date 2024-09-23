@@ -1,6 +1,5 @@
 use std::{
-    any::Any, fs::{self}, path::PathBuf, sync::{
-        atomic::{AtomicBool, Ordering},
+    fs::{self}, path::PathBuf, sync::{
         Arc, Mutex, RwLock,
     }, thread
 };
@@ -16,19 +15,17 @@ pub struct TemplateApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
     photos_index: usize,
 
-    #[serde(skip)]
     photos: Vec<Arc<RwLock<ImageInfo>>>,
 
     photo_dir: PathBuf,
-    show_deferred_viewport: Arc<AtomicBool>,
 }
+
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
             photos_index: 0,
             photos: Vec::new().into(),
-            show_deferred_viewport: AtomicBool::new(false).into(),
             photo_dir: PathBuf::from("C:\\Users\\gilbe\\Pictures\\Photo_Dump"),
         }
     }
@@ -44,9 +41,10 @@ impl TemplateApp {
         // Note that you must enable the `persistence` feature for this to work.
 
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let persisted_state:TemplateApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            return persisted_state;
         }
-
+        
         Default::default()
     }
 
@@ -90,8 +88,8 @@ impl TemplateApp {
                                                 ui.label(owned_photo.image_name.clone());
                                             }
                                             None => {
-                                                let label = ui.label("texture not ready");
-                                                drop(label);
+                                                ui.label("texture not ready");
+                                                ui.label(owned_photo.image_name.clone());
                                             },
                                         };
                                     }
@@ -146,6 +144,15 @@ impl TemplateApp {
             commit_culling(&self.photos, self.photo_dir.clone());
         }
 
+        if ui.button("Load textures").clicked() {
+            let mut photos = (&self.photos).to_owned();
+            let thread_ctx = ui.ctx().clone();
+
+            let _handler = thread::spawn(move || {
+                load_images_into_memory(&mut photos, thread_ctx);
+            });
+        }
+
         if ctx.input(|i| i.key_pressed(Key::D)) {
             go_to_next_picture(self);
         }
@@ -174,7 +181,7 @@ impl TemplateApp {
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_images_into_memory(&mut photos, &thread_ctx);
+                load_images_into_memory(&mut photos, thread_ctx);
             });
         }
     }
@@ -286,7 +293,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
     }
 }
 
-fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: &egui::Context) {
+fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: egui::Context) {
     for image_info in photos {
         let data = match fs::read(&image_info.read().unwrap().path_processed) {
             Ok(result) => result,
