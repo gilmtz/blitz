@@ -1,7 +1,8 @@
 use std::{
-    fs::{self}, path::PathBuf, sync::{
-        Arc, Mutex, RwLock,
-    }, thread
+    fs::{self},
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+    thread,
 };
 
 use egui::{ColorImage, Key, Vec2};
@@ -22,7 +23,6 @@ pub struct TemplateApp {
     photo_dir: PathBuf,
     max_texture_count: i32,
 }
-
 
 impl Default for TemplateApp {
     fn default() -> Self {
@@ -45,10 +45,11 @@ impl TemplateApp {
         // Note that you must enable the `persistence` feature for this to work.
 
         if let Some(storage) = cc.storage {
-            let persisted_state:TemplateApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let persisted_state: TemplateApp =
+                eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             return persisted_state;
         }
-        
+
         Default::default()
     }
 
@@ -92,9 +93,12 @@ impl TemplateApp {
                                                 ui.label(owned_photo.image_name.clone());
                                             }
                                             None => {
-                                                ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(1000.0));
+                                                ui.add(
+                                                    egui::Image::new("file://assets/icon-1024.png")
+                                                        .max_width(1000.0),
+                                                );
                                                 ui.label(owned_photo.image_name.clone());
-                                            },
+                                            }
                                         };
                                     }
                                     Err(_) => {}
@@ -128,7 +132,10 @@ impl TemplateApp {
                                             ui.label(current_image.image_name.clone())
                                         }
                                         None => {
-                                            ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(1000.0));
+                                            ui.add(
+                                                egui::Image::new("file://assets/icon-1024.png")
+                                                    .max_width(1000.0),
+                                            );
                                             ui.label(current_image.image_name.clone())
                                         }
                                     };
@@ -144,7 +151,6 @@ impl TemplateApp {
     }
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-
         if ui.button("Open folder…").clicked() {
             self.open_folder_action(ctx, ui);
         }
@@ -155,10 +161,11 @@ impl TemplateApp {
 
         if ui.button("Load textures").clicked() {
             let mut photos = (&self.photos).to_owned();
+            let max_texture_count = (&self.max_texture_count).to_owned();
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_images_into_memory(&mut photos, thread_ctx);
+                load_images_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
         }
 
@@ -178,13 +185,12 @@ impl TemplateApp {
             self.photos[self.photos_index].write().unwrap().rating = Rating::Approve;
             go_to_next_picture(self);
         }
-
     }
 
-    fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui){
+    fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             self.photo_dir = path.clone();
-            
+
             // // Restore state from .blitz folder
             let mut blitz_dir = self.photo_dir.clone();
             blitz_dir.push(".blitz");
@@ -192,32 +198,32 @@ impl TemplateApp {
 
             match fs::read(blitz_dir.clone()) {
                 Ok(seralized_ron) => {
-                    match & ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
+                    match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
                         Ok(stored_state) => {
                             self.photos = stored_state.clone();
-                        },
+                        }
                         Err(_) => todo!("failed to deserialized the previous state"),
                     }
-                },
+                }
                 Err(_) => {
                     init_photos_state(self.photo_dir.clone(), &mut self.photos);
-                },
+                }
             }
 
             // init_photos_state(self.photo_dir.clone(), &mut self.photos);
 
             let mut photos = (&self.photos).to_owned();
+            let max_texture_count = (&self.max_texture_count).to_owned();
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_images_into_memory(&mut photos, thread_ctx);
+                load_images_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
 
             // match fs::create_dir_all(blitz_dir.clone()) {
             //     Ok(it) => it,
             //     Err(_err) => todo!("handle when we can't make directories later"),
             // };
-            
         }
     }
 }
@@ -227,13 +233,12 @@ impl eframe::App for TemplateApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
-
         let mut blitz_dir = self.photo_dir.clone();
         blitz_dir.push(".blitz");
 
         match fs::create_dir_all(blitz_dir.clone()) {
-            Ok(_dir) => {},
-            Err(_err) => {},
+            Ok(_dir) => {}
+            Err(_err) => {}
         };
 
         blitz_dir.push("storage.ron");
@@ -242,10 +247,10 @@ impl eframe::App for TemplateApp {
         match ron_str {
             Ok(serialized_ron) => {
                 let _ = fs::write(blitz_dir, serialized_ron);
-            },
+            }
             Err(_) => {
                 todo!("serializing didn't work")
-            },
+            }
         }
     }
 
@@ -263,16 +268,16 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
-            ui.add(egui::Slider::new(&mut self.max_texture_count, 0..=500).text("Max Texture Count"));
-            
+            ui.add(
+                egui::Slider::new(&mut self.max_texture_count, 0..=500).text("Max Texture Count"),
+            );
+
             self.handle_user_input(ctx, ui);
 
             if self.photos.len() > 0 {
                 let current_image = self.photos[self.photos_index].read().unwrap();
 
-                let texture_mutex = current_image
-                    .texture
-                    .clone();
+                let texture_mutex = current_image.texture.clone();
                 match texture_mutex.try_lock() {
                     Ok(texture_handle) => {
                         match *texture_handle {
@@ -282,7 +287,10 @@ impl eframe::App for TemplateApp {
                                 // ui.image((texture.id(), Vec2::new(1000.0, 1000.0)))
                             }
                             None => {
-                                ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(1000.0));
+                                ui.add(
+                                    egui::Image::new("file://assets/icon-1024.png")
+                                        .max_width(1000.0),
+                                );
                                 ui.label(current_image.image_name.clone())
                             }
                         };
@@ -325,15 +333,16 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
     for path in paths.take(50) {
         match path {
             Ok(ref x) => {
-                match x.path().is_file(){
-                    false => {}, // TODO: handle folders recursively?
+                match x.path().is_file() {
+                    false => {} // TODO: handle folders recursively?
                     true => {
                         let file_extension = match x.path().extension() {
                             Some(extension) => extension.to_owned(),
                             None => todo!("need to handle when we can't get the file extension"),
                         };
-                        if file_extension == "JPG"  || file_extension == "jpg" {
-                            let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
+                        if file_extension == "JPG" || file_extension == "jpg" {
+                            let filename =
+                                x.path().file_name().unwrap().to_str().unwrap().to_string();
 
                             let image_info = ImageInfo {
                                 path_processed: x.path().clone(),
@@ -344,44 +353,48 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
                             };
                             photos.push(Arc::new(RwLock::new(image_info)));
                         }
-                    },
+                    }
                 }
-
-
             }
             Err(_) => todo!("need to handle when the path errors out"),
         }
     }
 }
 
-fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: egui::Context) {
+fn load_images_into_memory(
+    photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
+    ctx: egui::Context,
+    max_texture_count: i32,
+) {
+    let mut texture_counter = 0;
     for image_info in photos {
-        if image_info.read().unwrap().rating == Rating::Skip {
-        let data = match fs::read(&image_info.read().unwrap().path_processed) {
-            Ok(result) => result,
-            Err(_) => todo!("handle when we can't read the file"),
-        };
-        let image_data = load_image_from_memory(&data);
+        if image_info.read().unwrap().rating == Rating::Skip && texture_counter < max_texture_count
+        {
+            let data = match fs::read(&image_info.read().unwrap().path_processed) {
+                Ok(result) => result,
+                Err(_) => todo!("handle when we can't read the file"),
+            };
+            let image_data = load_image_from_memory(&data);
 
-        let texture_handle = match image_data {
-            Ok(color_image) => {
-                let texture_id = image_info
-                    .read()
-                    .unwrap()
-                    .path_processed
-                    .clone()
-                    .as_mut_os_str()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                Some(ctx.load_texture(texture_id, color_image, Default::default()))
-            }
-            Err(_) => None,
-        };
+            let texture_handle = match image_data {
+                Ok(color_image) => {
+                    let texture_id = image_info
+                        .read()
+                        .unwrap()
+                        .path_processed
+                        .clone()
+                        .as_mut_os_str()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    Some(ctx.load_texture(texture_id, color_image, Default::default()))
+                }
+                Err(_) => None,
+            };
 
-        image_info.write().unwrap().texture = Arc::new(Mutex::new(texture_handle));
+            image_info.write().unwrap().texture = Arc::new(Mutex::new(texture_handle));
+            texture_counter += 1;
         }
-        
     }
 }
 
