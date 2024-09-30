@@ -95,7 +95,7 @@ impl TemplateApp {
                                             None => {
                                                 ui.add(
                                                     egui::Image::new("file://assets/icon-1024.png")
-                                                        .max_width(1000.0),
+                                                        .max_width(100.0),
                                                 );
                                                 ui.label(owned_photo.image_name.clone());
                                             }
@@ -134,7 +134,7 @@ impl TemplateApp {
                                         None => {
                                             ui.add(
                                                 egui::Image::new("file://assets/icon-1024.png")
-                                                    .max_width(1000.0),
+                                                    .max_width(100.0),
                                             );
                                             ui.label(current_image.image_name.clone())
                                         }
@@ -165,7 +165,7 @@ impl TemplateApp {
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_images_into_memory(&mut photos, thread_ctx, max_texture_count);
+                load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
         }
 
@@ -217,7 +217,7 @@ impl TemplateApp {
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_images_into_memory(&mut photos, thread_ctx, max_texture_count);
+                load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
 
             // match fs::create_dir_all(blitz_dir.clone()) {
@@ -361,7 +361,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
     }
 }
 
-fn load_images_into_memory(
+fn load_textures_into_memory(
     photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
     ctx: egui::Context,
     max_texture_count: i32,
@@ -374,7 +374,7 @@ fn load_images_into_memory(
                 Ok(result) => result,
                 Err(_) => todo!("handle when we can't read the file"),
             };
-            let image_data = load_image_from_memory(&data);
+            let image_data = create_image(&data);
 
             let texture_handle = match image_data {
                 Ok(color_image) => {
@@ -398,7 +398,7 @@ fn load_images_into_memory(
     }
 }
 
-fn load_image_from_memory(image_data: &[u8]) -> Result<ColorImage, image::ImageError> {
+fn create_image(image_data: &[u8]) -> Result<ColorImage, image::ImageError> {
     let image = image::load_from_memory(image_data)?;
     let size = [image.width() as _, image.height() as _];
     let image_buffer = image.to_rgba8();
