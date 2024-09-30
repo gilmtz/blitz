@@ -5,6 +5,7 @@ use std::{
 };
 
 use egui::{ColorImage, Key, Vec2};
+use serde::Serialize;
 
 use crate::{commit_culling, get_raw_variant, ImageInfo, Rating};
 
@@ -18,6 +19,7 @@ pub struct TemplateApp {
     photos: Vec<Arc<RwLock<ImageInfo>>>,
 
     photo_dir: PathBuf,
+    max_texture_count: i32,
 }
 
 
@@ -27,6 +29,7 @@ impl Default for TemplateApp {
             photos_index: 0,
             photos: Vec::new().into(),
             photo_dir: PathBuf::from("C:\\Users\\gilbe\\Pictures\\Photo_Dump"),
+            max_texture_count: 200,
         }
     }
 }
@@ -174,8 +177,26 @@ impl TemplateApp {
 
     fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui){
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
-            self.photo_dir = path;
-            init_photos_state(self.photo_dir.clone(), &mut self.photos);
+            self.photo_dir = path.clone();
+
+            // Restore state from .blitz folder
+            let mut blitz_dir = self.photo_dir.clone();
+            blitz_dir.push(".blitz");
+            blitz_dir.push("storage.ron");
+
+            match fs::read(blitz_dir.clone()) {
+                Ok(seralized_ron) => {
+                    match & ron::de::from_bytes::<TemplateApp>(&seralized_ron) {
+                        Ok(stored_state) => {
+                            self.photos = stored_state.photos.clone();
+                        },
+                        Err(_) => todo!(),
+                    }
+                },
+                Err(_) => {
+                    init_photos_state(self.photo_dir.clone(), &mut self.photos);
+                },
+            }
 
             let mut photos = (&self.photos).to_owned();
             let thread_ctx = ui.ctx().clone();
@@ -183,6 +204,12 @@ impl TemplateApp {
             let _handler = thread::spawn(move || {
                 load_images_into_memory(&mut photos, thread_ctx);
             });
+
+            match fs::create_dir_all(blitz_dir.clone()) {
+                Ok(it) => it,
+                Err(_err) => todo!("handle when we can't make directories later"),
+            };
+            
         }
     }
 }
@@ -191,6 +218,21 @@ impl eframe::App for TemplateApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
+
+
+        let mut blitz_dir = self.photo_dir.clone();
+        blitz_dir.push(".blitz");
+        blitz_dir.push("storage.ron");
+
+        let ron_str = ron::ser::to_string(&self);
+        match ron_str {
+            Ok(serialized_ron) => {
+                let _ = fs::write(blitz_dir, serialized_ron);
+            },
+            Err(_) => {
+                todo!("serializing didn't work")
+            },
+        }
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -207,7 +249,8 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
-
+            ui.add(egui::Slider::new(&mut self.max_texture_count, 0..=500).text("Max Texture Count"));
+            
             self.handle_user_input(ctx, ui);
 
             if self.photos.len() > 0 {
@@ -271,7 +314,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
                             Some(extension) => extension.to_owned(),
                             None => todo!("need to handle when we can't get the file extension"),
                         };
-                        if file_extension == "JPG" {
+                        if file_extension == "JPG"  || file_extension == "jpg" {
                             let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
 
                             let image_info = ImageInfo {
@@ -295,6 +338,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
 
 fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: egui::Context) {
     for image_info in photos {
+        if image_info.read().unwrap().rating == Rating::Skip {
         let data = match fs::read(&image_info.read().unwrap().path_processed) {
             Ok(result) => result,
             Err(_) => todo!("handle when we can't read the file"),
@@ -318,6 +362,8 @@ fn load_images_into_memory(photos: &mut Vec<Arc<RwLock<ImageInfo>>>, ctx: egui::
         };
 
         image_info.write().unwrap().texture = Arc::new(Mutex::new(texture_handle));
+        }
+        
     }
 }
 

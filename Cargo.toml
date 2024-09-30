@@ -24,6 +24,7 @@ log = "0.4"
 rfd = "0.13"
 
 # You only need serde if you want app persistence:
+ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 
 # native:
