@@ -157,7 +157,7 @@ impl TemplateApp {
         }
 
         if ui.button("Commit choices").clicked() {
-            commit_culling(&self.photos, self.photo_dir.clone());
+            commit_culling(&self.photos, self.photo_dir.clone(), self.dry_run_mode.clone());
         }
 
         if ui.button("Load next textures").clicked() {
