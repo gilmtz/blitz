@@ -4,6 +4,7 @@ mod app;
 use std::{fs, path::PathBuf, sync::{Arc, Mutex, RwLock}};
 
 pub use app::TemplateApp;
+use egui::epaint::tessellator::path;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(Clone)]
@@ -25,7 +26,7 @@ enum Rating {
 }
 
 
-fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
+fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf, dry_run_mode: bool) {
     let mut chaffe_dir = root_dir.clone();
     chaffe_dir.push("chaffe");
     let mut wheat_dir = root_dir.clone();
@@ -45,10 +46,16 @@ fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf) {
         match image.read().unwrap().rating {
             Rating::Skip => {}
             Rating::Approve => {
-                copy_image_into_dir(&wheat_dir, &image.read().unwrap())
+                copy_image_into_dir(&wheat_dir, &image.read().unwrap());
+                if !dry_run_mode {
+                    delete_image(&image.read().unwrap());
+                }
             }
             Rating::Remove => {
-                copy_image_into_dir(&chaffe_dir, &image.read().unwrap())
+                copy_image_into_dir(&chaffe_dir, &image.read().unwrap());
+                if !dry_run_mode {
+                    delete_image(&image.read().unwrap());
+                }
             }
         }
     }
@@ -70,6 +77,18 @@ fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
         None => {},
     }
     
+}
+
+fn delete_image(image: &ImageInfo) -> std::io::Result<()>{
+    fs::remove_file(image.path_processed.clone())?;
+
+    match &image.path_raw {
+        Some(path_raw) => {
+            fs::remove_file(path_raw.clone())?;
+        },
+        None => {},
+    }
+    Ok(())
 }
 
 fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {

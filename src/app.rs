@@ -5,9 +5,8 @@ use std::{
     thread,
 };
 
-use egui::{ColorImage, Key, Vec2};
+use egui::{ColorImage, Key};
 use ron::ser::PrettyConfig;
-use serde::Serialize;
 
 use crate::{commit_culling, get_raw_variant, ImageInfo, Rating};
 
@@ -22,6 +21,7 @@ pub struct TemplateApp {
 
     photo_dir: PathBuf,
     max_texture_count: i32,
+    dry_run_mode: bool,
 }
 
 impl Default for TemplateApp {
@@ -31,6 +31,7 @@ impl Default for TemplateApp {
             photos: Vec::new().into(),
             photo_dir: PathBuf::from("C:\\Users\\gilbe\\Pictures\\Photo_Dump"),
             max_texture_count: 200,
+            dry_run_mode: true,
         }
     }
 }
@@ -159,7 +160,7 @@ impl TemplateApp {
             commit_culling(&self.photos, self.photo_dir.clone());
         }
 
-        if ui.button("Load textures").clicked() {
+        if ui.button("Load next textures").clicked() {
             let mut photos = (&self.photos).to_owned();
             let max_texture_count = (&self.max_texture_count).to_owned();
             let thread_ctx = ui.ctx().clone();
@@ -168,6 +169,8 @@ impl TemplateApp {
                 load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
         }
+
+        ui.checkbox(&mut self.dry_run_mode, "Dry Run Mode");
 
         if ctx.input(|i| i.key_pressed(Key::D)) {
             go_to_next_picture(self);
@@ -179,6 +182,7 @@ impl TemplateApp {
 
         if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
             self.photos[self.photos_index].write().unwrap().rating = Rating::Remove;
+            self.photos[self.photos_index].write().unwrap().texture = Arc::new(Mutex::new(None));
             go_to_next_picture(self);
         }
         if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
@@ -201,7 +205,11 @@ impl TemplateApp {
                     match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
                         Ok(stored_state) => {
                             let stored_images = stored_state.clone();
-                            init_photos_state(self.photo_dir.clone(), &mut self.photos, Some(stored_images));
+                            init_photos_state(
+                                self.photo_dir.clone(),
+                                &mut self.photos,
+                                Some(stored_images),
+                            );
                         }
                         Err(_) => todo!("failed to deserialized the previous state"),
                     }
@@ -328,7 +336,11 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     });
 }
 
-fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>>, stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>) {
+fn init_photos_state(
+    photo_dir: PathBuf,
+    photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
+    stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>,
+) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
     for path in paths {
         match path {
@@ -361,7 +373,10 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
     }
 }
 
-fn get_rating_for_image(stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>, image_path: PathBuf) -> Rating{
+fn get_rating_for_image(
+    stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
+    image_path: PathBuf,
+) -> Rating {
     match stored_photos {
         Some(photos) => {
             for image_lock in photos {
@@ -371,13 +386,13 @@ fn get_rating_for_image(stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>, ima
                 }
             }
             return Rating::Skip;
-        },
+        }
         None => Rating::Skip,
     }
 }
 
 fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
-    let mut counter:usize = 0;
+    let mut counter: usize = 0;
     for image_lock in photos {
         let image = image_lock.read().unwrap().clone();
         if image.rating == Rating::Skip {
@@ -449,7 +464,7 @@ fn go_to_next_picture(template_app: &mut TemplateApp) {
             break;
         }
         if starting_index == template_app.photos_index {
-            commit_culling(&template_app.photos, template_app.photo_dir.clone());
+            commit_culling(&template_app.photos, template_app.photo_dir.clone(), template_app.dry_run_mode.clone());
             todo!("We finished culling our pictures move to confirmation screen")
         }
     }
