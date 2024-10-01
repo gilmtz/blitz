@@ -200,17 +200,18 @@ impl TemplateApp {
                 Ok(seralized_ron) => {
                     match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
                         Ok(stored_state) => {
-                            self.photos = stored_state.clone();
+                            let stored_images = stored_state.clone();
+                            init_photos_state(self.photo_dir.clone(), &mut self.photos, Some(stored_images));
                         }
                         Err(_) => todo!("failed to deserialized the previous state"),
                     }
                 }
                 Err(_) => {
-                    init_photos_state(self.photo_dir.clone(), &mut self.photos);
+                    init_photos_state(self.photo_dir.clone(), &mut self.photos, None);
                 }
             }
 
-            // init_photos_state(self.photo_dir.clone(), &mut self.photos);
+            self.photos_index = get_first_unrated_image_index(&self.photos);
 
             let mut photos = (&self.photos).to_owned();
             let max_texture_count = (&self.max_texture_count).to_owned();
@@ -284,7 +285,6 @@ impl eframe::App for TemplateApp {
                             Some(ref texture) => {
                                 ui.add(egui::Image::new(texture).max_width(1000.0));
                                 ui.label(current_image.image_name.clone())
-                                // ui.image((texture.id(), Vec2::new(1000.0, 1000.0)))
                             }
                             None => {
                                 ui.add(
@@ -328,9 +328,9 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     });
 }
 
-fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>>) {
+fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>>, stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
-    for path in paths.take(50) {
+    for path in paths {
         match path {
             Ok(ref x) => {
                 match x.path().is_file() {
@@ -347,7 +347,7 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
                             let image_info = ImageInfo {
                                 path_processed: x.path().clone(),
                                 path_raw: get_raw_variant(&x.path()),
-                                rating: Rating::Skip,
+                                rating: get_rating_for_image(&stored_photos, x.path().clone()),
                                 texture: Arc::new(Mutex::new(None)),
                                 image_name: filename,
                             };
@@ -359,6 +359,33 @@ fn init_photos_state(photo_dir: PathBuf, photos: &mut Vec<Arc<RwLock<ImageInfo>>
             Err(_) => todo!("need to handle when the path errors out"),
         }
     }
+}
+
+fn get_rating_for_image(stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>, image_path: PathBuf) -> Rating{
+    match stored_photos {
+        Some(photos) => {
+            for image_lock in photos {
+                let image = image_lock.read().unwrap().clone();
+                if image.path_processed == image_path {
+                    return image.rating;
+                }
+            }
+            return Rating::Skip;
+        },
+        None => Rating::Skip,
+    }
+}
+
+fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
+    let mut counter:usize = 0;
+    for image_lock in photos {
+        let image = image_lock.read().unwrap().clone();
+        if image.rating == Rating::Skip {
+            return counter;
+        }
+        counter += 1;
+    }
+    return counter;
 }
 
 fn load_textures_into_memory(
