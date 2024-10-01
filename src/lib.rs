@@ -4,7 +4,7 @@ mod app;
 use std::{fs, path::PathBuf, sync::{Arc, Mutex, RwLock}};
 
 pub use app::TemplateApp;
-use egui::epaint::tessellator::path;
+use ron::ser::PrettyConfig;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(Clone)]
@@ -89,6 +89,31 @@ fn delete_image(image: &ImageInfo) -> std::io::Result<()>{
         None => {},
     }
     Ok(())
+}
+
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>){
+    if photos.len()  < 1 {
+        return;
+    }
+    let mut blitz_dir = photo_dir.clone();
+    blitz_dir.push(".blitz");
+
+    match fs::create_dir_all(blitz_dir.clone()) {
+        Ok(_dir) => {}
+        Err(_err) => {}
+    };
+
+    blitz_dir.push("storage.ron");
+
+    let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new());
+    match ron_str {
+        Ok(serialized_ron) => {
+            let _ = fs::write(blitz_dir, serialized_ron);
+        }
+        Err(_) => {
+            todo!("serializing didn't work")
+        }
+    }
 }
 
 fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {

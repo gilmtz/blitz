@@ -1,14 +1,12 @@
 use std::{
-    fs::{self},
-    path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    thread,
+    fmt::Debug, fs::{self}, path::PathBuf, sync::{Arc, Mutex, RwLock}, thread
 };
 
+use eframe::App;
 use egui::{ColorImage, Key};
 use ron::ser::PrettyConfig;
 
-use crate::{commit_culling, get_raw_variant, ImageInfo, Rating};
+use crate::{commit_culling, get_raw_variant, save_culling_progress, ImageInfo, Rating};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -192,6 +190,7 @@ impl TemplateApp {
     }
 
     fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        save_culling_progress(&self.photo_dir, &self.photos);
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             self.photo_dir = path.clone();
 
@@ -202,6 +201,7 @@ impl TemplateApp {
 
             match fs::read(blitz_dir.clone()) {
                 Ok(seralized_ron) => {
+                    self.photos = Vec::new().into();
                     match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
                         Ok(stored_state) => {
                             let stored_images = stored_state.clone();
@@ -242,25 +242,7 @@ impl eframe::App for TemplateApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
-        let mut blitz_dir = self.photo_dir.clone();
-        blitz_dir.push(".blitz");
-
-        match fs::create_dir_all(blitz_dir.clone()) {
-            Ok(_dir) => {}
-            Err(_err) => {}
-        };
-
-        blitz_dir.push("storage.ron");
-
-        let ron_str = ron::ser::to_string_pretty(&self.photos, PrettyConfig::new());
-        match ron_str {
-            Ok(serialized_ron) => {
-                let _ = fs::write(blitz_dir, serialized_ron);
-            }
-            Err(_) => {
-                todo!("serializing didn't work")
-            }
-        }
+        save_culling_progress(&self.photo_dir, &self.photos);
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
