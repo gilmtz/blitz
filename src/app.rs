@@ -1,10 +1,11 @@
 use std::{
-    fmt::Debug, fs::{self}, path::PathBuf, sync::{Arc, Mutex, RwLock}, thread
+    fs::{self},
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+    thread,
 };
 
-use eframe::App;
 use egui::{ColorImage, Key};
-use ron::ser::PrettyConfig;
 
 use crate::{commit_culling, get_raw_variant, save_culling_progress, ImageInfo, Rating};
 
@@ -158,7 +159,11 @@ impl TemplateApp {
         }
 
         if ui.button("Commit choices").clicked() {
-            commit_culling(&self.photos, self.photo_dir.clone(), self.dry_run_mode.clone());
+            commit_culling(
+                &self.photos,
+                self.photo_dir.clone(),
+                self.dry_run_mode.clone(),
+            );
             self.open_folder_action(ui, self.photo_dir.clone());
         }
 
@@ -442,7 +447,11 @@ fn go_to_next_picture(template_app: &mut TemplateApp) {
             break;
         }
         if starting_index == template_app.photos_index {
-            commit_culling(&template_app.photos, template_app.photo_dir.clone(), template_app.dry_run_mode.clone());
+            commit_culling(
+                &template_app.photos,
+                template_app.photo_dir.clone(),
+                template_app.dry_run_mode.clone(),
+            );
             todo!("We finished culling our pictures move to confirmation screen")
         }
     }

@@ -1,13 +1,16 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
-use std::{fs, path::PathBuf, sync::{Arc, Mutex, RwLock}};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+};
 
 pub use app::TemplateApp;
 use ron::ser::PrettyConfig;
 
-#[derive(serde::Deserialize, serde::Serialize)]
-#[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ImageInfo {
     path_processed: PathBuf,
     path_raw: Option<PathBuf>,
@@ -17,14 +20,12 @@ pub struct ImageInfo {
     image_name: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
 enum Rating {
     Skip,
     Approve,
     Remove,
 }
-
 
 fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf, dry_run_mode: bool) {
     let mut chaffe_dir = root_dir.clone();
@@ -73,26 +74,25 @@ fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
             raw_image_destination.push(image.image_name.clone());
             raw_image_destination.set_extension("RAF");
             let _ = fs::copy(path_raw.clone(), raw_image_destination);
-        },
-        None => {},
+        }
+        None => {}
     }
-    
 }
 
-fn delete_image(image: &ImageInfo) -> std::io::Result<()>{
+fn delete_image(image: &ImageInfo) -> std::io::Result<()> {
     fs::remove_file(image.path_processed.clone())?;
 
     match &image.path_raw {
         Some(path_raw) => {
             fs::remove_file(path_raw.clone())?;
-        },
-        None => {},
+        }
+        None => {}
     }
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>){
-    if photos.len()  < 1 {
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>) {
+    if photos.len() < 1 {
         return;
     }
     let mut blitz_dir = photo_dir.clone();
@@ -118,13 +118,11 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>
 
 fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {
     let mut raw_path = processed_path.clone();
-    match raw_path.set_extension("RAF"){
+    match raw_path.set_extension("RAF") {
         true => Some(raw_path),
         false => None,
     }
-        
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -134,6 +132,6 @@ mod tests {
     fn test_get_raw_variant() {
         let path = PathBuf::from("/tmp/DSC55555.jpg");
         let raw_variant = get_raw_variant(&path).unwrap();
-        assert_eq!("RAF",raw_variant.extension().unwrap())
+        assert_eq!("RAF", raw_variant.extension().unwrap())
     }
 }
