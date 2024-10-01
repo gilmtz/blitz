@@ -151,11 +151,15 @@ impl TemplateApp {
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
-            self.open_folder_action(ctx, ui);
+            save_culling_progress(&self.photo_dir, &self.photos);
+            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                self.open_folder_action(ui, path);
+            }
         }
 
         if ui.button("Commit choices").clicked() {
             commit_culling(&self.photos, self.photo_dir.clone(), self.dry_run_mode.clone());
+            self.open_folder_action(ui, self.photo_dir.clone());
         }
 
         if ui.button("Load next textures").clicked() {
@@ -189,51 +193,43 @@ impl TemplateApp {
         }
     }
 
-    fn open_folder_action(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        save_culling_progress(&self.photo_dir, &self.photos);
-        if let Some(path) = rfd::FileDialog::new().pick_folder() {
-            self.photo_dir = path.clone();
+    fn open_folder_action(&mut self, ui: &mut egui::Ui, path: PathBuf) {
+        self.photo_dir = path.clone();
 
-            // // Restore state from .blitz folder
-            let mut blitz_dir = self.photo_dir.clone();
-            blitz_dir.push(".blitz");
-            blitz_dir.push("storage.ron");
+        // // Restore state from .blitz folder
+        let mut blitz_dir = self.photo_dir.clone();
+        blitz_dir.push(".blitz");
+        blitz_dir.push("storage.ron");
 
-            match fs::read(blitz_dir.clone()) {
-                Ok(seralized_ron) => {
-                    self.photos = Vec::new().into();
-                    match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
-                        Ok(stored_state) => {
-                            let stored_images = stored_state.clone();
-                            init_photos_state(
-                                self.photo_dir.clone(),
-                                &mut self.photos,
-                                Some(stored_images),
-                            );
-                        }
-                        Err(_) => todo!("failed to deserialized the previous state"),
+        match fs::read(blitz_dir.clone()) {
+            Ok(seralized_ron) => {
+                self.photos = Vec::new().into();
+                match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
+                    Ok(stored_state) => {
+                        let stored_images = stored_state.clone();
+                        init_photos_state(
+                            self.photo_dir.clone(),
+                            &mut self.photos,
+                            Some(stored_images),
+                        );
                     }
-                }
-                Err(_) => {
-                    init_photos_state(self.photo_dir.clone(), &mut self.photos, None);
+                    Err(_) => todo!("failed to deserialized the previous state"),
                 }
             }
-
-            self.photos_index = get_first_unrated_image_index(&self.photos);
-
-            let mut photos = (&self.photos).to_owned();
-            let max_texture_count = (&self.max_texture_count).to_owned();
-            let thread_ctx = ui.ctx().clone();
-
-            let _handler = thread::spawn(move || {
-                load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
-            });
-
-            // match fs::create_dir_all(blitz_dir.clone()) {
-            //     Ok(it) => it,
-            //     Err(_err) => todo!("handle when we can't make directories later"),
-            // };
+            Err(_) => {
+                init_photos_state(self.photo_dir.clone(), &mut self.photos, None);
+            }
         }
+
+        self.photos_index = get_first_unrated_image_index(&self.photos);
+
+        let mut photos = (&self.photos).to_owned();
+        let max_texture_count = (&self.max_texture_count).to_owned();
+        let thread_ctx = ui.ctx().clone();
+
+        let _handler = thread::spawn(move || {
+            load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+        });
     }
 }
 
