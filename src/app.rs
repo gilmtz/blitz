@@ -83,7 +83,7 @@ impl TemplateApp {
                     for photo in self.photos.iter() {
                         let owned_photo = photo.read().unwrap();
                         match owned_photo.rating {
-                            Rating::Skip => {
+                            Rating::Unrated => {
                                 let texture_mutex = photo.read().unwrap().texture.clone();
                                 match texture_mutex.try_lock() {
                                     Ok(texture_handle) => {
@@ -121,7 +121,7 @@ impl TemplateApp {
                 for photo in self.photos.iter().rev() {
                     let current_image = photo.read().unwrap();
                     match current_image.rating {
-                        Rating::Skip => {}
+                        Rating::Unrated => {}
                         Rating::Approve => {
                             let texture_mutex = photo.read().unwrap().texture.clone();
                             match texture_mutex.try_lock() {
@@ -368,9 +368,9 @@ fn get_rating_for_image(
                     return image.rating;
                 }
             }
-            return Rating::Skip;
+            return Rating::Unrated;
         }
-        None => Rating::Skip,
+        None => Rating::Unrated,
     }
 }
 
@@ -378,7 +378,7 @@ fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize 
     let mut counter: usize = 0;
     for image_lock in photos {
         let image = image_lock.read().unwrap().clone();
-        if image.rating == Rating::Skip {
+        if image.rating == Rating::Unrated {
             return counter;
         }
         counter += 1;
@@ -393,7 +393,7 @@ fn load_all_textures_into_memory(
 ) {
     let mut texture_counter = 0;
     for image_info in photos {
-        if image_info.read().unwrap().rating == Rating::Skip && texture_counter < max_texture_count
+        if image_info.read().unwrap().rating == Rating::Unrated && texture_counter < max_texture_count
         {
             match load_texture_into_memory(image_info, ctx.clone()) {
                 Some(_) =>  texture_counter += 1,

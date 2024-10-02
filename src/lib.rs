@@ -22,7 +22,7 @@ pub struct ImageInfo {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
 enum Rating {
-    Skip,
+    Unrated,
     Approve,
     Remove,
 }
@@ -45,17 +45,17 @@ fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf, dry_r
 
     for image in photos.iter() {
         match image.read().unwrap().rating {
-            Rating::Skip => {}
+            Rating::Unrated => {}
             Rating::Approve => {
                 copy_image_into_dir(&wheat_dir, &image.read().unwrap());
                 if !dry_run_mode {
-                    delete_image(&image.read().unwrap());
+                    let _ = delete_image(&image.read().unwrap());
                 }
             }
             Rating::Remove => {
                 copy_image_into_dir(&chaffe_dir, &image.read().unwrap());
                 if !dry_run_mode {
-                    delete_image(&image.read().unwrap());
+                    let _ = delete_image(&image.read().unwrap());
                 }
             }
         }
@@ -135,7 +135,7 @@ fn get_next_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<ImageIn
             .read()
             .unwrap()
             .rating
-            == Rating::Skip
+            == Rating::Unrated
         {
             return Some(candidate_index);
         }
@@ -157,7 +157,7 @@ fn get_previous_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<Ima
             .read()
             .unwrap()
             .rating
-            == Rating::Skip
+            == Rating::Unrated
         {
             return Some(candidate_index);
         }
@@ -184,21 +184,21 @@ mod tests {
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Skip,
+            rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Skip,
+            rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Skip,
+            rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
         })));
@@ -278,7 +278,7 @@ mod tests {
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Skip,
+            rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
         })));
