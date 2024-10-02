@@ -124,6 +124,49 @@ fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {
     }
 }
 
+fn get_next_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<ImageInfo>>>) -> Option<usize>{
+    let mut candidate_index = starting_index.clone();
+    loop {
+        candidate_index += 1;
+        if candidate_index >= photos.len() {
+            candidate_index = 0
+        }
+        if photos[candidate_index]
+            .read()
+            .unwrap()
+            .rating
+            == Rating::Skip
+        {
+            return Some(candidate_index);
+        }
+        if starting_index == candidate_index {
+            return None
+        }
+    }
+}
+
+fn get_previous_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<ImageInfo>>>) -> Option<usize>{
+    let mut candidate_index = starting_index.clone();
+    loop {
+        if candidate_index == 0 {
+            candidate_index = photos.len() - 1;
+        } else {
+            candidate_index = candidate_index - 1;
+        }
+        if photos[candidate_index]
+            .read()
+            .unwrap()
+            .rating
+            == Rating::Skip
+        {
+            return Some(candidate_index);
+        }
+        if starting_index == candidate_index {
+            return None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,5 +176,136 @@ mod tests {
         let path = PathBuf::from("/tmp/DSC55555.jpg");
         let raw_variant = get_raw_variant(&path).unwrap();
         assert_eq!("RAF", raw_variant.extension().unwrap())
+    }
+
+    #[test]
+    fn test_get_next_picture_index_no_ratings() {
+        let mut test_photos = Vec::new();
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Skip,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Skip,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Skip,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+
+        let next_picture_index = get_next_picture_index(0, &test_photos);
+        assert_eq!(Some(1), next_picture_index);
+        let next_picture_index = get_next_picture_index(1, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+        let next_picture_index = get_next_picture_index(2, &test_photos);
+        assert_eq!(Some(0), next_picture_index);
+
+        let next_picture_index = get_previous_picture_index(0, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+        let next_picture_index = get_previous_picture_index(1, &test_photos);
+        assert_eq!(Some(0), next_picture_index);
+        let next_picture_index = get_previous_picture_index(2, &test_photos);
+        assert_eq!(Some(1), next_picture_index);
+    }
+
+    #[test]
+    fn test_get_next_picture_index_full_list() {
+        let mut test_photos = Vec::new();
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+
+        let next_picture_index = get_next_picture_index(0, &test_photos);
+        assert_eq!(None, next_picture_index);
+        let next_picture_index = get_next_picture_index(1, &test_photos);
+        assert_eq!(None, next_picture_index);
+        let next_picture_index = get_next_picture_index(2, &test_photos);
+        assert_eq!(None, next_picture_index);
+
+        let previous_picture_index = get_previous_picture_index(0, &test_photos);
+        assert_eq!(None, previous_picture_index);
+        let previous_picture_index = get_previous_picture_index(1, &test_photos);
+        assert_eq!(None, previous_picture_index);
+        let previous_picture_index = get_previous_picture_index(2, &test_photos);
+        assert_eq!(None, previous_picture_index);
+    }
+
+    #[test]
+    fn test_get_next_picture_index_skip_rated() {
+        let mut test_photos = Vec::new();
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Skip,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
+            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "/tmp/DSC55555.jpg".to_string(),
+        })));
+
+        let next_picture_index = get_next_picture_index(0, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+        let next_picture_index = get_next_picture_index(1, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+        let next_picture_index = get_next_picture_index(2, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+        let next_picture_index = get_next_picture_index(3, &test_photos);
+        assert_eq!(Some(2), next_picture_index);
+
+        let previous_picture_index = get_previous_picture_index(0, &test_photos);
+        assert_eq!(Some(2), previous_picture_index);
+        let previous_picture_index = get_previous_picture_index(1, &test_photos);
+        assert_eq!(Some(2), previous_picture_index);
+        let previous_picture_index = get_previous_picture_index(2, &test_photos);
+        assert_eq!(Some(2), previous_picture_index);
+        let previous_picture_index = get_previous_picture_index(3, &test_photos);
+        assert_eq!(Some(2), previous_picture_index);
     }
 }

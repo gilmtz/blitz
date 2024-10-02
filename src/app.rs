@@ -7,7 +7,7 @@ use std::{
 
 use egui::{ColorImage, Key, TextureHandle};
 
-use crate::{commit_culling, get_raw_variant, save_culling_progress, ImageInfo, Rating};
+use crate::{commit_culling, get_next_picture_index, get_previous_picture_index, get_raw_variant, save_culling_progress, ImageInfo, Rating};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -19,7 +19,7 @@ pub struct TemplateApp {
     photos: Vec<Arc<RwLock<ImageInfo>>>,
 
     photo_dir: PathBuf,
-    max_texture_count: i32,
+    max_texture_count: usize,
     dry_run_mode: bool,
 }
 
@@ -440,30 +440,15 @@ fn create_image(image_data: &[u8]) -> Result<ColorImage, image::ImageError> {
 }
 
 fn go_to_next_picture(template_app: &mut TemplateApp) {
-    let starting_index = template_app.photos_index;
-    loop {
-        template_app.photos_index += 1;
-        if template_app.photos_index >= template_app.photos.len() {
-            template_app.photos_index = 0
-        }
-        if template_app.photos[template_app.photos_index]
-            .read()
-            .unwrap()
-            .rating
-            == Rating::Skip
-        {
-            break;
-        }
-        if starting_index == template_app.photos_index {
-            template_app.photos_index = 0;
-            break;
-        }
+    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos) {
+        Some(index) => template_app.photos_index = index,
+        None => todo!("we rated everything so now we die"),
     }
 }
 
 fn go_to_previous_picture(template_app: &mut TemplateApp) {
-    if template_app.photos_index == 0 {
-        template_app.photos_index = template_app.photos.len() - 1
+    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos) {
+        Some(index) => template_app.photos_index = index,
+        None => todo!("we rated everything so now we die"),
     }
-    template_app.photos_index -= 1;
 }
