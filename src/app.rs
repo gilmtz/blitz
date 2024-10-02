@@ -5,7 +5,7 @@ use std::{
     thread,
 };
 
-use egui::{ColorImage, Key};
+use egui::{ColorImage, Key, TextureHandle};
 
 use crate::{commit_culling, get_raw_variant, save_culling_progress, ImageInfo, Rating};
 
@@ -173,7 +173,7 @@ impl TemplateApp {
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+                load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
         }
 
@@ -233,7 +233,7 @@ impl TemplateApp {
         let thread_ctx = ui.ctx().clone();
 
         let _handler = thread::spawn(move || {
-            load_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+            load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
         });
     }
 }
@@ -386,41 +386,49 @@ fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize 
     return counter;
 }
 
-fn load_textures_into_memory(
+fn load_all_textures_into_memory(
     photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
     ctx: egui::Context,
-    max_texture_count: i32,
+    max_texture_count: usize,
 ) {
     let mut texture_counter = 0;
     for image_info in photos {
         if image_info.read().unwrap().rating == Rating::Skip && texture_counter < max_texture_count
         {
-            let data = match fs::read(&image_info.read().unwrap().path_processed) {
-                Ok(result) => result,
-                Err(_) => todo!("handle when we can't read the file"),
-            };
-            let image_data = create_image(&data);
-
-            let texture_handle = match image_data {
-                Ok(color_image) => {
-                    let texture_id = image_info
-                        .read()
-                        .unwrap()
-                        .path_processed
-                        .clone()
-                        .as_mut_os_str()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
-                    Some(ctx.load_texture(texture_id, color_image, Default::default()))
-                }
-                Err(_) => None,
-            };
-
-            image_info.write().unwrap().texture = Arc::new(Mutex::new(texture_handle));
-            texture_counter += 1;
+            match load_texture_into_memory(image_info, ctx.clone()) {
+                Some(_) =>  texture_counter += 1,
+                None => {},
+            }
+           
         }
     }
+}
+
+fn load_texture_into_memory(image_info: &mut Arc<RwLock<ImageInfo>>, ctx: egui::Context) -> Option<TextureHandle> {
+    let data = match fs::read(&image_info.read().unwrap().path_processed) {
+        Ok(result) => result,
+        Err(_) => return None, // If we can't read the image we just skip it
+    };
+    let image_data = create_image(&data);
+
+    let texture_handle = match image_data {
+        Ok(color_image) => {
+            let texture_id = image_info
+                .read()
+                .unwrap()
+                .path_processed
+                .clone()
+                .as_mut_os_str()
+                .to_str()
+                .unwrap()
+                .to_string();
+            Some(ctx.load_texture(texture_id, color_image, Default::default()))
+        }
+        Err(_) => return None,
+    };
+
+    image_info.write().unwrap().texture = Arc::new(Mutex::new(texture_handle.clone()));
+    texture_handle
 }
 
 fn create_image(image_data: &[u8]) -> Result<ColorImage, image::ImageError> {
@@ -447,12 +455,8 @@ fn go_to_next_picture(template_app: &mut TemplateApp) {
             break;
         }
         if starting_index == template_app.photos_index {
-            commit_culling(
-                &template_app.photos,
-                template_app.photo_dir.clone(),
-                template_app.dry_run_mode.clone(),
-            );
-            todo!("We finished culling our pictures move to confirmation screen")
+            template_app.photos_index = 0;
+            break;
         }
     }
 }
