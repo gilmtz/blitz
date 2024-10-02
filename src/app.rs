@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     fs::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
@@ -7,7 +8,10 @@ use std::{
 
 use egui::{ColorImage, Key, TextureHandle};
 
-use crate::{commit_culling, get_next_picture_index, get_previous_picture_index, get_raw_variant, save_culling_progress, ImageInfo, Rating};
+use crate::{
+    commit_culling, get_first_unrated_image_index, get_next_picture_index,
+    get_previous_picture_index, get_raw_variant, save_culling_progress, ImageInfo, Rating,
+};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -28,7 +32,7 @@ impl Default for TemplateApp {
         Self {
             photos_index: 0,
             photos: Vec::new().into(),
-            photo_dir: PathBuf::from("C:\\Users\\gilbe\\Pictures\\Photo_Dump"),
+            photo_dir: PathBuf::from("C:\\Users"),
             max_texture_count: 200,
             dry_run_mode: true,
         }
@@ -335,7 +339,7 @@ fn init_photos_state(
                             Some(extension) => extension.to_owned(),
                             None => todo!("need to handle when we can't get the file extension"),
                         };
-                        if file_extension == "JPG" || file_extension == "jpg" {
+                        if is_file_extension_supported(file_extension) {
                             let filename =
                                 x.path().file_name().unwrap().to_str().unwrap().to_string();
 
@@ -356,6 +360,16 @@ fn init_photos_state(
     }
 }
 
+fn is_file_extension_supported(extension: OsString) -> bool {
+    if extension == "JPG" {
+        return true;
+    }
+    if extension == "jpg" {
+        return true;
+    }
+    return false;
+}
+
 fn get_rating_for_image(
     stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
     image_path: PathBuf,
@@ -374,18 +388,6 @@ fn get_rating_for_image(
     }
 }
 
-fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
-    let mut counter: usize = 0;
-    for image_lock in photos {
-        let image = image_lock.read().unwrap().clone();
-        if image.rating == Rating::Unrated {
-            return counter;
-        }
-        counter += 1;
-    }
-    return counter;
-}
-
 fn load_all_textures_into_memory(
     photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
     ctx: egui::Context,
@@ -393,18 +395,21 @@ fn load_all_textures_into_memory(
 ) {
     let mut texture_counter = 0;
     for image_info in photos {
-        if image_info.read().unwrap().rating == Rating::Unrated && texture_counter < max_texture_count
+        if image_info.read().unwrap().rating == Rating::Unrated
+            && texture_counter < max_texture_count
         {
             match load_texture_into_memory(image_info, ctx.clone()) {
-                Some(_) =>  texture_counter += 1,
-                None => {},
+                Some(_) => texture_counter += 1,
+                None => {}
             }
-           
         }
     }
 }
 
-fn load_texture_into_memory(image_info: &mut Arc<RwLock<ImageInfo>>, ctx: egui::Context) -> Option<TextureHandle> {
+fn load_texture_into_memory(
+    image_info: &mut Arc<RwLock<ImageInfo>>,
+    ctx: egui::Context,
+) -> Option<TextureHandle> {
     let data = match fs::read(&image_info.read().unwrap().path_processed) {
         Ok(result) => result,
         Err(_) => return None, // If we can't read the image we just skip it

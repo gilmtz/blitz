@@ -167,6 +167,18 @@ fn get_previous_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<Ima
     }
 }
 
+fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
+    let mut counter: usize = 0;
+    for image_lock in photos {
+        let image = image_lock.read().unwrap().clone();
+        if image.rating == Rating::Unrated {
+            return counter;
+        }
+        counter += 1;
+    }
+    return counter;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
