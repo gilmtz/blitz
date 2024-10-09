@@ -9,8 +9,7 @@ use std::{
 use egui::{ColorImage, Key, TextureHandle};
 
 use crate::{
-    commit_culling, get_first_unrated_image_index, get_next_picture_index,
-    get_previous_picture_index, get_raw_variant, save_culling_progress, ImageInfo, Rating,
+    commit_culling, get_chaffe_dir, get_first_unrated_image_index, get_next_picture_index, get_previous_picture_index, get_raw_variant, get_wheat_dir, save_culling_progress, ImageInfo, Rating
 };
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -165,7 +164,8 @@ impl TemplateApp {
         if ui.button("Commit choices").clicked() {
             commit_culling(
                 &self.photos,
-                self.photo_dir.clone(),
+                &get_chaffe_dir(&self.photo_dir),
+                &get_wheat_dir(&self.photo_dir),
                 self.dry_run_mode.clone(),
             );
             self.open_folder_action(ui, self.photo_dir.clone());

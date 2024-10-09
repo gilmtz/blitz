@@ -27,11 +27,23 @@ enum Rating {
     Remove,
 }
 
-fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, root_dir: PathBuf, dry_run_mode: bool) {
+fn get_chaffe_dir(root_dir: &PathBuf) -> PathBuf {
     let mut chaffe_dir = root_dir.clone();
     chaffe_dir.push("chaffe");
+    return  chaffe_dir;
+}
+
+fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
     let mut wheat_dir = root_dir.clone();
     wheat_dir.push("wheat");
+    return wheat_dir;
+}
+
+fn commit_culling(
+    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    chaffe_dir: &PathBuf,
+    wheat_dir: &PathBuf,
+    dry_run_mode: bool) {
 
     match fs::create_dir_all(chaffe_dir.clone()) {
         Ok(it) => it,
@@ -319,5 +331,46 @@ mod tests {
         assert_eq!(Some(2), previous_picture_index);
         let previous_picture_index = get_previous_picture_index(3, &test_photos);
         assert_eq!(Some(2), previous_picture_index);
+    }
+
+    #[test]
+    fn test_commit_culling(){
+        let temp_path = PathBuf::from("tmp");
+        fs::create_dir_all(&temp_path).unwrap();
+
+        copy_test_images_to_dir();
+
+        let mut test_photos = Vec::new();
+        let image_info = ImageInfo {
+            path_processed: PathBuf::from("tmp/1.jpg"),
+            path_raw: None,
+            rating: Rating::Unrated,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "1.jpg".to_string(),
+        };
+        test_photos.push(Arc::new(RwLock::new(image_info)));
+
+        let temp_path = PathBuf::from("tmp");
+        let chaffe_path = PathBuf::from("tmp/chaffe");
+        let wheat_path = PathBuf::from("tmp/wheat");
+
+        fs::create_dir_all(&chaffe_path).unwrap();
+        fs::create_dir_all(&wheat_path).unwrap();
+
+        commit_culling(&test_photos, &chaffe_path, &wheat_path, false);
+
+        fs::remove_dir_all(&chaffe_path).unwrap();
+        fs::remove_dir_all(&wheat_path).unwrap();
+        fs::remove_dir_all(&temp_path).unwrap();
+    }
+
+    fn copy_test_images_to_dir() {
+        fs::copy(PathBuf::from("assets/samples/1.jpg"), PathBuf::from("tmp/1.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/2.jpg"), PathBuf::from("tmp/2.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/3.jpg"), PathBuf::from("tmp/3.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/4.jpg"), PathBuf::from("tmp/4.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/5.jpg"), PathBuf::from("tmp/5.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/6.jpg"), PathBuf::from("tmp/6.jpg")).unwrap();
+        fs::copy(PathBuf::from("assets/samples/7.jpg"), PathBuf::from("tmp/7.jpg")).unwrap();
     }
 }
