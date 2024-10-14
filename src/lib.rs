@@ -59,6 +59,8 @@ fn commit_culling(
         match image.read().unwrap().rating {
             Rating::Unrated => {}
             Rating::Approve => {
+                // TODO: use fs:rename to avoid copying bytes
+                // confirm the mount point
                 copy_image_into_dir(&wheat_dir, &image.read().unwrap());
                 if !dry_run_mode {
                     let _ = delete_image(&image.read().unwrap());
@@ -79,7 +81,6 @@ fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
     proccessed_image_destination.push(image.image_name.clone());
     let _ = fs::copy(image.path_processed.clone(), proccessed_image_destination);
 
-    println!("{}", image.path_raw.clone().unwrap().display());
     match &image.path_raw {
         Some(path_raw) => {
             let mut raw_image_destination = destination_dir.clone();
@@ -193,6 +194,7 @@ fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize 
 
 #[cfg(test)]
 mod tests {
+    use eframe::glow::TRUE;
     use super::*;
 
     #[test]
@@ -334,21 +336,35 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_culling(){
+    fn test_commit_culling_dry_run(){
         let temp_path = PathBuf::from("tmp");
         fs::create_dir_all(&temp_path).unwrap();
 
         copy_test_images_to_dir();
 
         let mut test_photos = Vec::new();
-        let image_info = ImageInfo {
+
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("tmp/1.jpg"),
+            path_raw: None,
+            rating: Rating::Remove,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "1.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("tmp/2.jpg"),
             path_raw: None,
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
-            image_name: "1.jpg".to_string(),
-        };
-        test_photos.push(Arc::new(RwLock::new(image_info)));
+            image_name: "2.jpg".to_string(),
+        })));
+        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            path_processed: PathBuf::from("tmp/3.jpg"),
+            path_raw: None,
+            rating: Rating::Approve,
+            texture: Arc::new(Mutex::new(None)),
+            image_name: "3.jpg".to_string(),
+        })));
 
         let temp_path = PathBuf::from("tmp");
         let chaffe_path = PathBuf::from("tmp/chaffe");
@@ -357,7 +373,21 @@ mod tests {
         fs::create_dir_all(&chaffe_path).unwrap();
         fs::create_dir_all(&wheat_path).unwrap();
 
-        commit_culling(&test_photos, &chaffe_path, &wheat_path, false);
+        commit_culling(&test_photos, &chaffe_path, &wheat_path, true);
+
+        // Confirm first image was moved to chaffe folder and still exists in original folder
+        assert_identical_files("assets/samples/1.jpg", "tmp/chaffe/1.jpg");
+        assert!(PathBuf::from("tmp/1.jpg").exists());
+
+        // Confirm the second unrated image was not moved
+        assert!(PathBuf::from("tmp/2.jpg").exists());
+        assert!(!PathBuf::from("tmp/wheat/2.jpg").exists());
+        assert!(!PathBuf::from("tmp/chaffe/2.jpg").exists());
+
+
+        // Confirm the third image was moved to wheat folder and still exists in original folder
+        assert_identical_files("assets/samples/3.jpg", "tmp/wheat/3.jpg");
+        assert!(PathBuf::from("tmp/3.jpg").exists());
 
         fs::remove_dir_all(&chaffe_path).unwrap();
         fs::remove_dir_all(&wheat_path).unwrap();
@@ -372,5 +402,11 @@ mod tests {
         fs::copy(PathBuf::from("assets/samples/5.jpg"), PathBuf::from("tmp/5.jpg")).unwrap();
         fs::copy(PathBuf::from("assets/samples/6.jpg"), PathBuf::from("tmp/6.jpg")).unwrap();
         fs::copy(PathBuf::from("assets/samples/7.jpg"), PathBuf::from("tmp/7.jpg")).unwrap();
+    }
+
+    fn assert_identical_files(src_path_string: &str, dest_path_string: &str) {
+        let source_bytes = fs::read(&src_path_string).unwrap();
+        let dest_bytes = fs::read(&dest_path_string).unwrap();
+        assert_eq!(source_bytes, source_bytes);
     }
 }
