@@ -162,11 +162,19 @@ impl TemplateApp {
         }
 
         if ui.button("Commit choices").clicked() {
+            match fs::create_dir_all(&get_chaffe_dir(&self.photo_dir).clone()) {
+                Ok(it) => it,
+                Err(_err) => todo!("handle when we can't make directories later"),
+            };
+
+            match fs::create_dir_all(&get_wheat_dir(&self.photo_dir).clone()) {
+                Ok(it) => it,
+                Err(_err) => todo!("handle when we can't make directories later"),
+            };
             commit_culling(
                 &self.photos,
                 &get_chaffe_dir(&self.photo_dir),
                 &get_wheat_dir(&self.photo_dir),
-                self.dry_run_mode.clone(),
             );
             self.open_folder_action(ui, self.photo_dir.clone());
         }

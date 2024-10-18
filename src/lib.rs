@@ -42,18 +42,7 @@ fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
 fn commit_culling(
     photos: &Vec<Arc<RwLock<ImageInfo>>>,
     chaffe_dir: &PathBuf,
-    wheat_dir: &PathBuf,
-    dry_run_mode: bool) {
-
-    match fs::create_dir_all(chaffe_dir.clone()) {
-        Ok(it) => it,
-        Err(_err) => todo!("handle when we can't make directories later"),
-    };
-
-    match fs::create_dir_all(wheat_dir.clone()) {
-        Ok(it) => it,
-        Err(_err) => todo!("handle when we can't make directories later"),
-    };
+    wheat_dir: &PathBuf) {
 
     for image in photos.iter() {
         match image.read().unwrap().rating {
@@ -61,32 +50,32 @@ fn commit_culling(
             Rating::Approve => {
                 // TODO: use fs:rename to avoid copying bytes
                 // confirm the mount point
-                copy_image_into_dir(&wheat_dir, &image.read().unwrap());
-                if !dry_run_mode {
-                    let _ = delete_image(&image.read().unwrap());
-                }
+                move_image_into_dir(&wheat_dir, &image.read().unwrap());
+                // if !dry_run_mode {
+                //     let _ = delete_image(&image.read().unwrap());
+                // }
             }
             Rating::Remove => {
-                copy_image_into_dir(&chaffe_dir, &image.read().unwrap());
-                if !dry_run_mode {
-                    let _ = delete_image(&image.read().unwrap());
-                }
+                move_image_into_dir(&chaffe_dir, &image.read().unwrap());
+                // if !dry_run_mode {
+                //     let _ = delete_image(&image.read().unwrap());
+                // }
             }
         }
     }
 }
 
-fn copy_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
-    let mut proccessed_image_destination = destination_dir.clone();
-    proccessed_image_destination.push(image.image_name.clone());
-    let _ = fs::copy(image.path_processed.clone(), proccessed_image_destination);
+fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
+    let mut processed_image_destination = destination_dir.clone();
+    processed_image_destination.push(image.image_name.clone());
+    let _ = fs::rename(image.path_processed.clone(), processed_image_destination);
 
     match &image.path_raw {
         Some(path_raw) => {
             let mut raw_image_destination = destination_dir.clone();
             raw_image_destination.push(image.image_name.clone());
             raw_image_destination.set_extension("RAF");
-            let _ = fs::copy(path_raw.clone(), raw_image_destination);
+            let _ = fs::rename(path_raw.clone(), raw_image_destination);
         }
         None => {}
     }
@@ -336,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_culling_dry_run(){
+    fn test_commit_culling(){
         let temp_path = PathBuf::from("tmp");
         fs::create_dir_all(&temp_path).unwrap();
 
@@ -373,11 +362,11 @@ mod tests {
         fs::create_dir_all(&chaffe_path).unwrap();
         fs::create_dir_all(&wheat_path).unwrap();
 
-        commit_culling(&test_photos, &chaffe_path, &wheat_path, true);
+        commit_culling(&test_photos, &chaffe_path, &wheat_path);
 
-        // Confirm first image was moved to chaffe folder and still exists in original folder
+        // Confirm first image was moved to chaffe folder and no longer exists in original folder
         assert_identical_files("assets/samples/1.jpg", "tmp/chaffe/1.jpg");
-        assert!(PathBuf::from("tmp/1.jpg").exists());
+        assert!(!PathBuf::from("tmp/1.jpg").exists());
 
         // Confirm the second unrated image was not moved
         assert!(PathBuf::from("tmp/2.jpg").exists());
@@ -385,9 +374,9 @@ mod tests {
         assert!(!PathBuf::from("tmp/chaffe/2.jpg").exists());
 
 
-        // Confirm the third image was moved to wheat folder and still exists in original folder
+        // Confirm the third image was moved to wheat folder and no longer exists in original folder
         assert_identical_files("assets/samples/3.jpg", "tmp/wheat/3.jpg");
-        assert!(PathBuf::from("tmp/3.jpg").exists());
+        assert!(!PathBuf::from("tmp/3.jpg").exists());
 
         fs::remove_dir_all(&chaffe_path).unwrap();
         fs::remove_dir_all(&wheat_path).unwrap();
