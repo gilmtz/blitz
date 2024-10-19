@@ -3,6 +3,7 @@
 mod app;
 use std::{
     fs,
+    io::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
 };
@@ -39,50 +40,37 @@ fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
     return wheat_dir;
 }
 
-fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, chaffe_dir: &PathBuf, wheat_dir: &PathBuf) {
+fn commit_culling(
+    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    chaffe_dir: &PathBuf,
+    wheat_dir: &PathBuf,
+) -> Vec<Result<(), io::Error>> {
+    let mut committing_results = vec![];
     for image in photos.iter() {
         match image.read().unwrap().rating {
             Rating::Unrated => {}
             Rating::Approve => {
-                // TODO: use fs:rename to avoid copying bytes
-                // confirm the mount point
-                move_image_into_dir(&wheat_dir, &image.read().unwrap());
-                // if !dry_run_mode {
-                //     let _ = delete_image(&image.read().unwrap());
-                // }
+                committing_results.push(move_image_into_dir(&wheat_dir, &image.read().unwrap()));
             }
             Rating::Remove => {
-                move_image_into_dir(&chaffe_dir, &image.read().unwrap());
-                // if !dry_run_mode {
-                //     let _ = delete_image(&image.read().unwrap());
-                // }
+                committing_results.push(move_image_into_dir(&chaffe_dir, &image.read().unwrap()));
             }
         }
     }
+    return committing_results;
 }
 
-fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) {
+fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(), std::io::Error> {
     let mut processed_image_destination = destination_dir.clone();
     processed_image_destination.push(image.image_name.clone());
-    let _ = fs::rename(image.path_processed.clone(), processed_image_destination);
+    fs::rename(image.path_processed.clone(), processed_image_destination)?;
 
     match &image.path_raw {
         Some(path_raw) => {
             let mut raw_image_destination = destination_dir.clone();
             raw_image_destination.push(image.image_name.clone());
             raw_image_destination.set_extension("RAF");
-            let _ = fs::rename(path_raw.clone(), raw_image_destination);
-        }
-        None => {}
-    }
-}
-
-fn delete_image(image: &ImageInfo) -> std::io::Result<()> {
-    fs::remove_file(image.path_processed.clone())?;
-
-    match &image.path_raw {
-        Some(path_raw) => {
-            fs::remove_file(path_raw.clone())?;
+            fs::rename(path_raw.clone(), raw_image_destination)?;
         }
         None => {}
     }
@@ -414,6 +402,6 @@ mod tests {
     fn assert_identical_files(src_path_string: &str, dest_path_string: &str) {
         let source_bytes = fs::read(&src_path_string).unwrap();
         let dest_bytes = fs::read(&dest_path_string).unwrap();
-        assert_eq!(source_bytes, source_bytes);
+        assert_eq!(source_bytes, dest_bytes);
     }
 }
