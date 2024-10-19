@@ -25,7 +25,6 @@ pub struct TemplateApp {
 
     photo_dir: PathBuf,
     max_texture_count: usize,
-    dry_run_mode: bool,
 }
 
 impl Default for TemplateApp {
@@ -35,7 +34,6 @@ impl Default for TemplateApp {
             photos: Vec::new().into(),
             photo_dir: PathBuf::from("C:\\Users"),
             max_texture_count: 200,
-            dry_run_mode: true,
         }
     }
 }
@@ -191,8 +189,6 @@ impl TemplateApp {
             });
         }
 
-        ui.checkbox(&mut self.dry_run_mode, "Dry Run Mode");
-
         if ctx.input(|i| i.key_pressed(Key::D)) {
             go_to_next_picture(self);
         }
@@ -273,7 +269,7 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
+            ui.heading("blitz");
             ui.add(
                 egui::Slider::new(&mut self.max_texture_count, 0..=500).text("Max Texture Count"),
             );
@@ -340,34 +336,38 @@ fn init_photos_state(
 ) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
     for path in paths {
-        match path {
-            Ok(ref x) => {
-                match x.path().is_file() {
-                    false => {} // TODO: handle folders recursively?
-                    true => {
-                        let file_extension = match x.path().extension() {
-                            Some(extension) => extension.to_owned(),
-                            None => todo!("need to handle when we can't get the file extension"),
-                        };
-                        if is_file_extension_supported(file_extension) {
-                            let filename =
-                                x.path().file_name().unwrap().to_str().unwrap().to_string();
-
-                            let image_info = ImageInfo {
-                                path_processed: x.path().clone(),
-                                path_raw: get_raw_variant(&x.path()),
-                                rating: get_rating_for_image(&stored_photos, x.path().clone()),
-                                texture: Arc::new(Mutex::new(None)),
-                                image_name: filename,
-                            };
-                            photos.push(Arc::new(RwLock::new(image_info)));
-                        }
-                    }
+        let x = path.unwrap();
+        match x.path().is_file() {
+            false => {} // TODO: handle folders recursively?
+            true => {
+                if let Some(image_info) = init_image_info(x, &stored_photos){
+                    photos.push(image_info);
                 }
             }
-            Err(_) => todo!("need to handle when the path errors out"),
         }
     }
+}
+
+fn init_image_info(x: fs::DirEntry, stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>) -> Option<Arc<RwLock<ImageInfo>>> {
+    let file_extension = match x.path().extension() {
+        Some(extension) => extension.to_owned(),
+        None => todo!("need to handle when we can't get the file extension"),
+    };
+    if !is_file_extension_supported(file_extension) {
+        return None;
+    }
+    let filename =
+        x.path().file_name().unwrap().to_str().unwrap().to_string();
+
+    let image_info = ImageInfo {
+        path_processed: x.path().clone(),
+        path_raw: get_raw_variant(&x.path()),
+        rating: get_rating_for_image(stored_photos, x.path().clone()),
+        texture: Arc::new(Mutex::new(None)),
+        image_name: filename,
+    };
+    Some(Arc::new(RwLock::new(image_info)))
+    
 }
 
 fn is_file_extension_supported(extension: OsString) -> bool {
@@ -408,9 +408,8 @@ fn load_all_textures_into_memory(
         if image_info.read().unwrap().rating == Rating::Unrated
             && texture_counter < max_texture_count
         {
-            match load_texture_into_memory(image_info, ctx.clone()) {
-                Some(_) => texture_counter += 1,
-                None => {}
+            if let Some(_) = load_texture_into_memory(image_info, ctx.clone()){
+                texture_counter += 1
             }
         }
     }
