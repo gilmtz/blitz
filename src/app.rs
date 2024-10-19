@@ -1,9 +1,5 @@
 use std::{
-    ffi::OsString,
-    fs::{self},
-    path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    thread,
+    ffi::OsString, fs::{self}, path::PathBuf, sync::{Arc, Mutex, RwLock}, thread
 };
 
 use egui::{ColorImage, Key, TextureHandle};
@@ -21,6 +17,9 @@ pub struct TemplateApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
     photos_index: usize,
     #[serde(skip)]
+    zoom_factor: f32,
+
+    #[serde(skip)]
     photos: Vec<Arc<RwLock<ImageInfo>>>,
 
     photo_dir: PathBuf,
@@ -34,6 +33,7 @@ impl Default for TemplateApp {
             photos: Vec::new().into(),
             photo_dir: PathBuf::from("C:\\Users"),
             max_texture_count: 200,
+            zoom_factor: 1.0,
         }
     }
 }
@@ -284,7 +284,25 @@ impl eframe::App for TemplateApp {
                     Ok(texture_handle) => {
                         match *texture_handle {
                             Some(ref texture) => {
-                                ui.add(egui::Image::new(texture).max_width(1000.0));
+                                let image = egui::Image::new(texture)
+                                    .max_width(1000.0)
+                                    .sense(egui::Sense { click: false, drag: true, focusable: false })
+                                    .uv(egui::Rect {min:  [0.0, 0.0].into(), max: [self.zoom_factor, self.zoom_factor].into()});
+                                let image_widget = ui.add(image);
+                                if image_widget.dragged(){
+                                    // image.uv(egui::Rect {min:  [0.0, 0.0].into(), max: [0.5, 0.5].into()});
+                                    println!("Image dragged");
+                                }
+                                if image_widget.hovered() {
+                                    ctx.input(|i| {
+                                        let scroll_vec = i.raw_scroll_delta;
+                                        
+                                        if scroll_vec.angle() != 0.0 {
+                                            println!("{}, {}, {}", scroll_vec, scroll_vec.length(), scroll_vec.angle());
+                                            self.zoom_factor = f32::min(1.0, self.zoom_factor - (scroll_vec.angle() * 0.015)); 
+                                        }
+                                    }); 
+                                }
                                 ui.label(current_image.image_name.clone())
                             }
                             None => {
