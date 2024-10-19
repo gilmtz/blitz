@@ -30,7 +30,7 @@ enum Rating {
 fn get_chaffe_dir(root_dir: &PathBuf) -> PathBuf {
     let mut chaffe_dir = root_dir.clone();
     chaffe_dir.push("chaffe");
-    return  chaffe_dir;
+    return chaffe_dir;
 }
 
 fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
@@ -39,11 +39,7 @@ fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
     return wheat_dir;
 }
 
-fn commit_culling(
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
-    chaffe_dir: &PathBuf,
-    wheat_dir: &PathBuf) {
-
+fn commit_culling(photos: &Vec<Arc<RwLock<ImageInfo>>>, chaffe_dir: &PathBuf, wheat_dir: &PathBuf) {
     for image in photos.iter() {
         match image.read().unwrap().rating {
             Rating::Unrated => {}
@@ -126,28 +122,29 @@ fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {
     }
 }
 
-fn get_next_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<ImageInfo>>>) -> Option<usize>{
+fn get_next_picture_index(
+    starting_index: usize,
+    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+) -> Option<usize> {
     let mut candidate_index = starting_index.clone();
     loop {
         candidate_index += 1;
         if candidate_index >= photos.len() {
             candidate_index = 0
         }
-        if photos[candidate_index]
-            .read()
-            .unwrap()
-            .rating
-            == Rating::Unrated
-        {
+        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
-            return None
+            return None;
         }
     }
 }
 
-fn get_previous_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<ImageInfo>>>) -> Option<usize>{
+fn get_previous_picture_index(
+    starting_index: usize,
+    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+) -> Option<usize> {
     let mut candidate_index = starting_index.clone();
     loop {
         if candidate_index == 0 {
@@ -155,16 +152,11 @@ fn get_previous_picture_index(starting_index: usize, photos: &Vec<Arc<RwLock<Ima
         } else {
             candidate_index = candidate_index - 1;
         }
-        if photos[candidate_index]
-            .read()
-            .unwrap()
-            .rating
-            == Rating::Unrated
-        {
+        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
-            return None
+            return None;
         }
     }
 }
@@ -183,7 +175,6 @@ fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize 
 
 #[cfg(test)]
 mod tests {
-    use eframe::glow::TRUE;
     use super::*;
 
     #[test]
@@ -325,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_culling(){
+    fn test_commit_culling() {
         let temp_path = PathBuf::from("tmp");
         fs::create_dir_all(&temp_path).unwrap();
 
@@ -373,7 +364,6 @@ mod tests {
         assert!(!PathBuf::from("tmp/wheat/2.jpg").exists());
         assert!(!PathBuf::from("tmp/chaffe/2.jpg").exists());
 
-
         // Confirm the third image was moved to wheat folder and no longer exists in original folder
         assert_identical_files("assets/samples/3.jpg", "tmp/wheat/3.jpg");
         assert!(!PathBuf::from("tmp/3.jpg").exists());
@@ -384,13 +374,41 @@ mod tests {
     }
 
     fn copy_test_images_to_dir() {
-        fs::copy(PathBuf::from("assets/samples/1.jpg"), PathBuf::from("tmp/1.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/2.jpg"), PathBuf::from("tmp/2.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/3.jpg"), PathBuf::from("tmp/3.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/4.jpg"), PathBuf::from("tmp/4.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/5.jpg"), PathBuf::from("tmp/5.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/6.jpg"), PathBuf::from("tmp/6.jpg")).unwrap();
-        fs::copy(PathBuf::from("assets/samples/7.jpg"), PathBuf::from("tmp/7.jpg")).unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/1.jpg"),
+            PathBuf::from("tmp/1.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/2.jpg"),
+            PathBuf::from("tmp/2.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/3.jpg"),
+            PathBuf::from("tmp/3.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/4.jpg"),
+            PathBuf::from("tmp/4.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/5.jpg"),
+            PathBuf::from("tmp/5.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/6.jpg"),
+            PathBuf::from("tmp/6.jpg"),
+        )
+        .unwrap();
+        fs::copy(
+            PathBuf::from("assets/samples/7.jpg"),
+            PathBuf::from("tmp/7.jpg"),
+        )
+        .unwrap();
     }
 
     fn assert_identical_files(src_path_string: &str, dest_path_string: &str) {

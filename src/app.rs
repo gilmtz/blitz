@@ -9,7 +9,9 @@ use std::{
 use egui::{ColorImage, Key, TextureHandle};
 
 use crate::{
-    commit_culling, get_chaffe_dir, get_first_unrated_image_index, get_next_picture_index, get_previous_picture_index, get_raw_variant, get_wheat_dir, save_culling_progress, ImageInfo, Rating
+    commit_culling, get_chaffe_dir, get_first_unrated_image_index, get_next_picture_index,
+    get_previous_picture_index, get_raw_variant, get_wheat_dir, save_culling_progress, ImageInfo,
+    Rating,
 };
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
