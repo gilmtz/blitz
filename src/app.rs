@@ -1,5 +1,5 @@
 use std::{
-    ffi::OsString, fs::{self}, path::PathBuf, sync::{Arc, Mutex, RwLock}, thread
+    f32::consts::SQRT_2, ffi::OsString, fs::{self}, path::PathBuf, sync::{Arc, Mutex, RwLock}, thread
 };
 
 use egui::{ColorImage, Key, TextureHandle};
@@ -17,7 +17,11 @@ pub struct TemplateApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
     photos_index: usize,
     #[serde(skip)]
-    zoom_factor: f32,
+    uv_size: f32,
+    #[serde(skip)]
+    uv_min: egui::Pos2,
+    #[serde(skip)]
+    uv_max: egui::Pos2,
 
     #[serde(skip)]
     photos: Vec<Arc<RwLock<ImageInfo>>>,
@@ -33,7 +37,9 @@ impl Default for TemplateApp {
             photos: Vec::new().into(),
             photo_dir: PathBuf::from("C:\\Users"),
             max_texture_count: 200,
-            zoom_factor: 1.0,
+            uv_size: 1.0,
+            uv_min: [0.0,0.0].into(),
+            uv_max: [1.0,1.0].into(),
         }
     }
 }
@@ -286,22 +292,63 @@ impl eframe::App for TemplateApp {
                             Some(ref texture) => {
                                 let image = egui::Image::new(texture)
                                     .max_width(1000.0)
-                                    .sense(egui::Sense { click: false, drag: true, focusable: false })
-                                    .uv(egui::Rect {min:  [0.0, 0.0].into(), max: [self.zoom_factor, self.zoom_factor].into()});
+                                    .sense(egui::Sense {
+                                        click: false,
+                                        drag: true,
+                                        focusable: false,
+                                    })
+                                    .uv(egui::Rect {
+                                        min: self.uv_min,
+                                        max: self.uv_max,
+                                    });
                                 let image_widget = ui.add(image);
-                                if image_widget.dragged(){
+                                    // vec2
+                                if image_widget.dragged() {
                                     // image.uv(egui::Rect {min:  [0.0, 0.0].into(), max: [0.5, 0.5].into()});
                                     println!("Image dragged");
                                 }
                                 if image_widget.hovered() {
+                                    // println!("image_widget hover pos: {}", image_widget.hover_pos().unwrap_or([0.0,0.0].into()));
                                     ctx.input(|i| {
                                         let scroll_vec = i.raw_scroll_delta;
-                                        
+                                        let abs_hover_pos =
+                                            i.pointer.hover_pos().unwrap_or([0.0, 0.0].into());
+                                        // println!("i.pointer: {}, rect: {}", i.pointer.hover_pos().unwrap_or([0.0,0.0].into()), image_widget.rect);
+                                        let relative_pos = egui::Pos2 {
+                                            x: abs_hover_pos.x - image_widget.interact_rect.min.x, // TODO: value is sometimes negative at the very edge
+                                            y: abs_hover_pos.y - image_widget.interact_rect.min.y,
+                                        };
+
+                                        let rect_size = egui::Vec2 {
+                                            x: image_widget.rect.max.x - image_widget.rect.min.x,
+                                            y: image_widget.rect.max.y - image_widget.rect.min.y
+                                        };
+
+                                        let uv_min = egui::Pos2 {
+                                            x: f32::max(0.0,f32::min(1.0, (relative_pos.x / rect_size.x) - self.uv_size/2.0)),
+                                            y: f32::max(0.0,f32::min(1.0, (relative_pos.y / rect_size.y) - self.uv_size/2.0)),
+                                        };
+                                        let uv_max = egui::Pos2 {
+                                            x: f32::min(1.0, self.uv_min.x + self.uv_size),
+                                            y: f32::min(1.0, self.uv_min.y + self.uv_size),
+                                        };
+                                        // println!("relative_pos: {}, uv: {}", relative_pos, uv_pos);
                                         if scroll_vec.angle() != 0.0 {
-                                            println!("{}, {}, {}", scroll_vec, scroll_vec.length(), scroll_vec.angle());
-                                            self.zoom_factor = f32::min(1.0, self.zoom_factor - (scroll_vec.angle() * 0.015)); 
+                                            println!(
+                                                "{}, {}, {}",
+                                                scroll_vec,
+                                                scroll_vec.length(),
+                                                scroll_vec.angle()
+                                            );
+                                            self.uv_size = f32::min(
+                                                1.0,
+                                                self.uv_size - (scroll_vec.angle() * 0.1),
+                                            );
+                                            self.uv_min = uv_min;
+                                            self.uv_max = uv_max;
                                         }
-                                    }); 
+                                    });
+                                    // println!("{}", image_widget.rect);
                                 }
                                 ui.label(current_image.image_name.clone())
                             }
@@ -358,7 +405,7 @@ fn init_photos_state(
         match x.path().is_file() {
             false => {} // TODO: handle folders recursively?
             true => {
-                if let Some(image_info) = init_image_info(x, &stored_photos){
+                if let Some(image_info) = init_image_info(x, &stored_photos) {
                     photos.push(image_info);
                 }
             }
@@ -366,7 +413,10 @@ fn init_photos_state(
     }
 }
 
-fn init_image_info(x: fs::DirEntry, stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>) -> Option<Arc<RwLock<ImageInfo>>> {
+fn init_image_info(
+    x: fs::DirEntry,
+    stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
+) -> Option<Arc<RwLock<ImageInfo>>> {
     let file_extension = match x.path().extension() {
         Some(extension) => extension.to_owned(),
         None => todo!("need to handle when we can't get the file extension"),
@@ -374,8 +424,7 @@ fn init_image_info(x: fs::DirEntry, stored_photos: &Option<Vec<Arc<RwLock<ImageI
     if !is_file_extension_supported(file_extension) {
         return None;
     }
-    let filename =
-        x.path().file_name().unwrap().to_str().unwrap().to_string();
+    let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
 
     let image_info = ImageInfo {
         path_processed: x.path().clone(),
@@ -385,7 +434,6 @@ fn init_image_info(x: fs::DirEntry, stored_photos: &Option<Vec<Arc<RwLock<ImageI
         image_name: filename,
     };
     Some(Arc::new(RwLock::new(image_info)))
-    
 }
 
 fn is_file_extension_supported(extension: OsString) -> bool {
@@ -426,7 +474,7 @@ fn load_all_textures_into_memory(
         if image_info.read().unwrap().rating == Rating::Unrated
             && texture_counter < max_texture_count
         {
-            if let Some(_) = load_texture_into_memory(image_info, ctx.clone()){
+            if let Some(_) = load_texture_into_memory(image_info, ctx.clone()) {
                 texture_counter += 1
             }
         }
