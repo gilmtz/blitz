@@ -89,7 +89,7 @@ impl TemplateApp {
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if self.photos.len() > 0 {
-                    for photo in self.photos.iter() {
+                    for (index, photo) in self.photos.iter().enumerate() {
                         let owned_photo = photo.read().unwrap();
                         match owned_photo.rating {
                             Rating::Unrated => {
@@ -98,7 +98,15 @@ impl TemplateApp {
                                     Ok(texture_handle) => {
                                         match *texture_handle {
                                             Some(ref texture) => {
-                                                ui.add(egui::Image::new(texture).max_width(100.0));
+                                                let image = egui::Image::new(texture).max_width(100.0).sense(egui::Sense {
+                                                    click: true,
+                                                    drag: true,
+                                                    focusable: false,
+                                                });
+                                                let image_widget = ui.add(image);
+                                                if image_widget.clicked() {
+                                                    self.photos_index = index
+                                                }
                                                 ui.label(owned_photo.image_name.clone());
                                             }
                                             None => {
@@ -284,6 +292,8 @@ impl eframe::App for TemplateApp {
 
             if self.photos.len() > 0 {
                 let current_image = self.photos[self.photos_index].read().unwrap();
+                let max_height = ui.available_height();
+                let max_width = ui.available_width();
 
                 let texture_mutex = current_image.texture.clone();
                 match texture_mutex.try_lock() {
@@ -291,7 +301,8 @@ impl eframe::App for TemplateApp {
                         match *texture_handle {
                             Some(ref texture) => {
                                 let image = egui::Image::new(texture)
-                                    .max_width(1000.0)
+                                    .max_width(max_width)
+                                    .max_height(max_height)
                                     .sense(egui::Sense {
                                         click: false,
                                         drag: true,
@@ -355,7 +366,7 @@ impl eframe::App for TemplateApp {
                             None => {
                                 ui.add(
                                     egui::Image::new("file://assets/icon-1024.png")
-                                        .max_width(1000.0),
+                                        .max_width(1500.0),
                                 );
                                 ui.label(current_image.image_name.clone())
                             }
