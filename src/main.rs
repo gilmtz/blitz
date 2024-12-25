@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
         native_options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(blitz::TemplateApp::new(cc)))
+            Ok(Box::new(blitz::BlitzApp::new(cc)))
         }),
     )
 }
@@ -40,7 +40,7 @@ fn main() {
             .start(
                 "the_canvas_id",
                 web_options,
-                Box::new(|cc| Ok(Box::new(blitz::TemplateApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(blitz::BlitzApp::new(cc)))),
             )
             .await;
 
