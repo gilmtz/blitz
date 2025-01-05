@@ -1,5 +1,7 @@
 use super::BlitzApp;
 
+use egui::{Color32, Vec2};
+
 impl BlitzApp {
     pub fn update_center_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -58,53 +60,31 @@ impl BlitzApp {
             println!("Image dragged");
         }
         if image_widget.hovered() {
-            self.handle_hover_action(ctx, image_widget);
+            self.handle_hover_action(ctx, image_widget, texture);
             // println!("{}", image_widget.rect);
         }
         ui.label(current_image.image_name.clone())
     }
     
-    fn handle_hover_action(&mut self, ctx: &egui::Context, image_widget: egui::Response) {
-        // println!("image_widget hover pos: {}", image_widget.hover_pos().unwrap_or([0.0,0.0].into()));
-        ctx.input(|i| {
-            let scroll_vec = i.raw_scroll_delta;
-            let abs_hover_pos =
-                i.pointer.hover_pos().unwrap_or([0.0, 0.0].into());
-            // println!("i.pointer: {}, rect: {}", i.pointer.hover_pos().unwrap_or([0.0,0.0].into()), image_widget.rect);
-            let relative_pos = egui::Pos2 {
-                x: abs_hover_pos.x - image_widget.interact_rect.min.x, // TODO: value is sometimes negative at the very edge
-                y: abs_hover_pos.y - image_widget.interact_rect.min.y,
-            };
-    
-            let rect_size = egui::Vec2 {
-                x: image_widget.rect.max.x - image_widget.rect.min.x,
-                y: image_widget.rect.max.y - image_widget.rect.min.y
-            };
-    
-            let uv_min = egui::Pos2 {
-                x: f32::max(0.0,f32::min(1.0, (relative_pos.x / rect_size.x) - self.uv_size/2.0)),
-                y: f32::max(0.0,f32::min(1.0, (relative_pos.y / rect_size.y) - self.uv_size/2.0)),
-            };
-            let uv_max = egui::Pos2 {
-                x: f32::min(1.0, self.uv_min.x + self.uv_size),
-                y: f32::min(1.0, self.uv_min.y + self.uv_size),
-            };
-            // println!("relative_pos: {}, uv: {}", relative_pos, uv_pos);
-            if scroll_vec.angle() != 0.0 {
-                println!(
-                    "{}, {}, {}",
-                    scroll_vec,
-                    scroll_vec.length(),
-                    scroll_vec.angle()
-                );
-                self.uv_size = f32::min(
-                    1.0,
-                    self.uv_size - (scroll_vec.angle() * 0.1),
-                );
-                self.uv_min = uv_min;
-                self.uv_max = uv_max;
-            }
-        });
+    fn handle_hover_action(&mut self, ctx: &egui::Context, image_widget: egui::Response, texture: &egui::TextureHandle) {
+        // Draw the image at the cursor position
+        if let Some(pos) = ctx.pointer_interact_pos() {
+            let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("cursor_layer")));
+            let image_size = Vec2::new(300.0, 300.0); // Adjust size as needed
+            let pos_rect = egui::Rect::from_min_max(pos, pos + image_size);
+            
+            
+            let relative_pos = pos - image_widget.rect.min;
+            let normalized_x = relative_pos.x / image_widget.rect.width();
+            let normalized_y = relative_pos.y / image_widget.rect.height();
+
+            let zoom_level = egui::vec2(0.03, 0.03);
+
+            let normalized_pos = egui::pos2(normalized_x, normalized_y);
+
+            let uv = egui::Rect::from_min_max(normalized_pos, normalized_pos+zoom_level);
+            painter.add(egui::Shape::image(texture.id(), pos_rect, uv, Color32::WHITE));
+        }
     }
     
     fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {

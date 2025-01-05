@@ -7,6 +7,8 @@ use std::{
 };
 
 use egui::Key;
+use std::future::Future;
+use rfd::FileHandle;
 use ron::ser::PrettyConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -85,7 +87,7 @@ impl BlitzApp {
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
             save_culling_progress(&self.photo_dir, &self.photos);
-            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+            if let Some(path) = pick_folder() {
                 self.open_folder_action(ui, path);
             }
         }
@@ -136,6 +138,35 @@ impl BlitzApp {
             go_to_next_picture(self);
         }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn pick_folder() -> Option<PathBuf> {
+    rfd::FileDialog::new().pick_folder()
+}
+
+async fn pick_folder_async() -> Option<PathBuf> {
+    
+        None
+}
+
+#[cfg(target_arch = "wasm32")]
+fn pick_folder() -> Option<PathBuf> {
+    let task = rfd::AsyncFileDialog::new().pick_file();
+    execute(async move {
+        let file = task.await;
+        if let Some(file) = file {
+            let mut path =  file.path().to_path_buf();
+            path.pop();
+            return Some(path);
+        }
+    });
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+fn execute<F: Future<Output = ()> + 'static>(f: F) {
+    wasm_bindgen_futures::spawn_local(f);
 }
 
 impl eframe::App for BlitzApp {
