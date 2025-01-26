@@ -14,7 +14,7 @@ impl BlitzApp {
     pub fn open_folder_action(&mut self, ui: &mut egui::Ui, path: PathBuf) {
         self.photo_dir = path.clone();
 
-        // // Restore state from .blitz folder
+        // Restore state from .blitz folder
         let mut blitz_dir = self.photo_dir.clone();
         blitz_dir.push(".blitz");
         blitz_dir.push("storage.ron");

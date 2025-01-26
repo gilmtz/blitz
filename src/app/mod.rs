@@ -7,8 +7,6 @@ use std::{
 };
 
 use egui::Key;
-use std::future::Future;
-use rfd::FileHandle;
 use ron::ser::PrettyConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -20,14 +18,11 @@ pub struct BlitzApp {
     #[serde(skip)]
     uv_size: f32,
     #[serde(skip)]
-    uv_min: egui::Pos2,
-    #[serde(skip)]
-    uv_max: egui::Pos2,
-
-    #[serde(skip)]
     photos: Vec<Arc<RwLock<ImageInfo>>>,
 
     photo_dir: PathBuf,
+    wheat_dir_target: Option<PathBuf>,
+    chaffe_dir_target: Option<PathBuf>,
     max_texture_count: usize,
 }
 
@@ -36,11 +31,11 @@ impl Default for BlitzApp {
         Self {
             photos_index: 0,
             photos: Vec::new().into(),
-            photo_dir: PathBuf::from("C:\\Users"),
+            photo_dir: PathBuf::new(),
             max_texture_count: 200,
             uv_size: 1.0,
-            uv_min: [0.0, 0.0].into(),
-            uv_max: [1.0, 1.0].into(),
+            wheat_dir_target: None,
+            chaffe_dir_target: None,
         }
     }
 }
@@ -75,6 +70,11 @@ impl BlitzApp {
                         if ui.button("Quit").clicked() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
+                        ui.add_space(16.0);
+
+                        if ui.button("Target Dirs").clicked() {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
                     });
                     ui.add_space(16.0);
                 }
@@ -93,20 +93,18 @@ impl BlitzApp {
         }
 
         if ui.button("Commit choices").clicked() {
-            match fs::create_dir_all(&get_chaffe_dir(&self.photo_dir).clone()) {
+            match fs::create_dir_all(&self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
                 Ok(it) => it,
                 Err(_err) => todo!("handle when we can't make directories later"),
             };
 
-            match fs::create_dir_all(&get_wheat_dir(&self.photo_dir).clone()) {
+            match fs::create_dir_all(&self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
                 Ok(it) => it,
                 Err(_err) => todo!("handle when we can't make directories later"),
             };
-            commit_culling(
-                &self.photos,
-                &get_chaffe_dir(&self.photo_dir),
-                &get_wheat_dir(&self.photo_dir),
-            );
+            let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
+            let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
+            commit_culling(&self.photos,chaffe_dir,wheat_dir);
             self.open_folder_action(ui, self.photo_dir.clone());
         }
 
@@ -138,16 +136,33 @@ impl BlitzApp {
             go_to_next_picture(self);
         }
     }
+
+    fn get_chaffe_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
+        match &self.chaffe_dir_target {
+            Some(target_dir) => target_dir.clone(),
+            None => {
+                let mut chaffe_dir = root_dir.clone();
+                chaffe_dir.push("chaffe");
+                return chaffe_dir;
+            },
+        }
+    }
+    
+    fn get_wheat_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
+        match &self.wheat_dir_target {
+            Some(target_dir) => target_dir.clone(),
+            None => {
+                let mut wheat_dir = root_dir.clone();
+                wheat_dir.push("wheat");
+                return wheat_dir;
+            },
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn pick_folder() -> Option<PathBuf> {
     rfd::FileDialog::new().pick_folder()
-}
-
-async fn pick_folder_async() -> Option<PathBuf> {
-    
-        None
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -221,18 +236,6 @@ enum Rating {
     Unrated,
     Approve,
     Remove,
-}
-
-fn get_chaffe_dir(root_dir: &PathBuf) -> PathBuf {
-    let mut chaffe_dir = root_dir.clone();
-    chaffe_dir.push("chaffe");
-    return chaffe_dir;
-}
-
-fn get_wheat_dir(root_dir: &PathBuf) -> PathBuf {
-    let mut wheat_dir = root_dir.clone();
-    wheat_dir.push("wheat");
-    return wheat_dir;
 }
 
 fn commit_culling(

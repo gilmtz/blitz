@@ -48,10 +48,6 @@ impl BlitzApp {
                 click: false,
                 drag: true,
                 focusable: false,
-            })
-            .uv(egui::Rect {
-                min: self.uv_min,
-                max: self.uv_max,
             });
         let image_widget = ui.add(image);
         // vec2
