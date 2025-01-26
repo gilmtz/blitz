@@ -276,6 +276,7 @@ fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(
 }
 
 fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>) {
+    // This handles the initial opening case
     if photos.len() < 1 {
         return;
     }
@@ -299,8 +300,6 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>
         }
     }
 }
-
-
 
 fn get_next_picture_index(
     starting_index: usize,

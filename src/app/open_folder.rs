@@ -100,22 +100,26 @@ pub fn load_all_textures_into_memory(
 }
 
 fn init_image_info(
-    x: fs::DirEntry,
+    dir_entry: fs::DirEntry,
     stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
 ) -> Option<Arc<RwLock<ImageInfo>>> {
-    let file_extension = match x.path().extension() {
+    let entry_path = dir_entry.path();
+    let file_extension = match entry_path.extension() {
         Some(extension) => extension.to_owned(),
-        None => todo!("need to handle when we can't get the file extension"),
+        None => {
+            println!("Couldn't get extension for {:?}", entry_path);
+            return None;
+        },
     };
     if !is_file_extension_supported(file_extension) {
         return None;
     }
-    let filename = x.path().file_name().unwrap().to_str().unwrap().to_string();
+    let filename = dir_entry.path().file_name().unwrap().to_str().unwrap().to_string();
 
     let image_info = ImageInfo {
-        path_processed: x.path().clone(),
-        path_raw: get_raw_variant(&x.path()),
-        rating: get_rating_for_image(stored_photos, x.path().clone()),
+        path_processed: dir_entry.path().clone(),
+        path_raw: get_raw_variant(&dir_entry.path()),
+        rating: get_rating_for_image(stored_photos, dir_entry.path().clone()),
         texture: Arc::new(Mutex::new(None)),
         image_name: filename,
     };
