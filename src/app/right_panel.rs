@@ -1,4 +1,4 @@
-use super::{Rating, BlitzApp};
+use super::{Rating, BlitzApp, context_menu};
 
 use std::
     sync::{Arc, RwLock, RwLockReadGuard}
@@ -28,13 +28,19 @@ fn render_photo_image(photo: &Arc<RwLock<super::ImageInfo>>, ui: &mut egui::Ui) 
 }
 
 fn handle_approve_image(photo: &Arc<RwLock<super::ImageInfo>>, ui: &mut egui::Ui, current_image: RwLockReadGuard<'_, super::ImageInfo>) {
-    if let Ok(texture_handle) = photo.read().unwrap().texture.clone().try_lock() {
+    let unwrapped_photo = photo.read().unwrap();
+    if let Ok(texture_handle) = unwrapped_photo.texture.clone().try_lock() {
         let texture = texture_handle.as_ref();
         let image = match texture {
             Some(texture) => egui::Image::new(texture).max_width(100.0),
             None => egui::Image::new("file://assets/icon-1024.png").max_width(100.0),
         };
-        ui.add(image);
+        let image_widget = ui.add(image);
+        image_widget.context_menu(|ui| {
+            context_menu::add_open_file_location_option(&unwrapped_photo, ui);
+            context_menu::add_open_file_option(&unwrapped_photo, ui);
+        });
+
         ui.label(current_image.image_name.clone());
     }
 }

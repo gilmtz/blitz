@@ -4,7 +4,7 @@ use std::
 
 use egui::TextureHandle;
 
-use super::{ImageInfo, Rating, BlitzApp};
+use super::{context_menu, BlitzApp, ImageInfo, Rating};
 
 impl BlitzApp {
     pub fn update_left_panel(&mut self, ctx: &egui::Context) {
@@ -56,7 +56,11 @@ impl BlitzApp {
         ui: &mut egui::Ui,
         owned_photo: std::sync::RwLockReadGuard<'_, ImageInfo>,
     ) {
-        ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(100.0));
+        let image_widget = ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(100.0));
+        image_widget.context_menu(|ui| {
+            context_menu::add_open_file_location_option(&owned_photo, ui);
+            context_menu::add_open_file_option(&owned_photo, ui);
+        });
         ui.label(owned_photo.image_name.clone());
     }
 
@@ -78,6 +82,10 @@ impl BlitzApp {
         if image_widget.clicked() {
             self.photos_index = index
         }
+        image_widget.context_menu(|ui| {
+            context_menu::add_open_file_location_option(&owned_photo, ui);
+            context_menu::add_open_file_option(&owned_photo, ui);
+        });
         ui.label(owned_photo.image_name.clone());
     }
 }

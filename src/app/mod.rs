@@ -584,3 +584,4 @@ mod right_panel;
 mod left_panel;
 mod center_panel;
 mod open_folder;
+mod context_menu;
