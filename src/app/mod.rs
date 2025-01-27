@@ -63,23 +63,7 @@ impl BlitzApp {
             // The top panel is often a good place for a menu bar:
 
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                        ui.add_space(16.0);
-
-                        if ui.button("Target Dirs").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-
-                egui::widgets::global_theme_preference_buttons(ui);
+                self.setup_menu_bar(ctx, ui);
             });
         });
     }
@@ -93,19 +77,7 @@ impl BlitzApp {
         }
 
         if ui.button("Commit choices").clicked() {
-            match fs::create_dir_all(&self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
-                Ok(it) => it,
-                Err(_err) => todo!("handle when we can't make directories later"),
-            };
-
-            match fs::create_dir_all(&self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
-                Ok(it) => it,
-                Err(_err) => todo!("handle when we can't make directories later"),
-            };
-            let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
-            let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
-            commit_culling(&self.photos,chaffe_dir,wheat_dir);
-            self.open_folder_action(ui, self.photo_dir.clone());
+            self.commit_choices(ui);
         }
 
         if ui.button("Load next textures").clicked() {
@@ -137,6 +109,22 @@ impl BlitzApp {
         }
     }
 
+    fn commit_choices(&mut self, ui: &mut egui::Ui) {
+        match fs::create_dir_all(&self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
+            Ok(it) => it,
+            Err(_err) => todo!("handle when we can't make directories later"),
+        };
+    
+        match fs::create_dir_all(&self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
+            Ok(it) => it,
+            Err(_err) => todo!("handle when we can't make directories later"),
+        };
+        let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
+        let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
+        commit_culling(&self.photos,chaffe_dir,wheat_dir);
+        self.open_folder_action(ui, self.photo_dir.clone());
+    }
+    
     fn get_chaffe_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
         match &self.chaffe_dir_target {
             Some(target_dir) => target_dir.clone(),
@@ -159,6 +147,8 @@ impl BlitzApp {
         }
     }
 }
+
+
 
 #[cfg(not(target_arch = "wasm32"))]
 fn pick_folder() -> Option<PathBuf> {
@@ -245,17 +235,21 @@ fn commit_culling(
 ) -> Vec<Result<(), io::Error>> {
     let mut committing_results = vec![];
     for image in photos.iter() {
-        match image.read().unwrap().rating {
-            Rating::Unrated => {}
-            Rating::Approve => {
-                committing_results.push(move_image_into_dir(&wheat_dir, &image.read().unwrap()));
-            }
-            Rating::Remove => {
-                committing_results.push(move_image_into_dir(&chaffe_dir, &image.read().unwrap()));
-            }
-        }
+        handle_image_cull(chaffe_dir, wheat_dir, &mut committing_results, image);
     }
     return committing_results;
+}
+
+fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &Arc<RwLock<ImageInfo>>) {
+    match image.read().unwrap().rating {
+        Rating::Unrated => {}
+        Rating::Approve => {
+            committing_results.push(move_image_into_dir(&wheat_dir, &image.read().unwrap()));
+        }
+        Rating::Remove => {
+            committing_results.push(move_image_into_dir(&chaffe_dir, &image.read().unwrap()));
+        }
+    }
 }
 
 fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(), std::io::Error> {
@@ -584,3 +578,4 @@ mod left_panel;
 mod center_panel;
 mod open_folder;
 mod context_menu;
+mod menu_bar;
