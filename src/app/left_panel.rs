@@ -42,31 +42,29 @@ impl BlitzApp {
     ) {
         let texture_mutex = photo.read().unwrap().texture.clone();
         match texture_mutex.try_lock() {
-            Ok(texture_handle) => {
-                let image_source:ImageSource<'_> = match *texture_handle {
-                    Some(ref texture) => texture.into(),
-                    None => "file://assets/icon-1024.png".into(),
-                };
-                let image = egui::Image::new(image_source)
-                    .max_width(100.0)
-                    .sense(egui::Sense {
-                        click: true,
-                        drag: false,
-                        focusable: false,
-                    });
-                self.render_photo_image(image, ui, index, &owned_photo)
-            }
+            Ok(texture_handle) => self.display_thumbnail(ui, index, owned_photo, texture_handle),
             Err(_) => {}
         };
     }
 
-    fn render_photo_image(
-        &mut self,
-        image: Image<'_>,
-        ui: &mut egui::Ui,
-        index: usize,
-        owned_photo: &std::sync::RwLockReadGuard<'_, ImageInfo>,
+    fn display_thumbnail(
+        &mut self, 
+        ui: &mut egui::Ui, 
+        index: usize, 
+        owned_photo: std::sync::RwLockReadGuard<'_, ImageInfo>, 
+        texture_handle: std::sync::MutexGuard<'_, Option<egui::TextureHandle>>
     ) {
+        let image_source:ImageSource<'_> = match *texture_handle {
+            Some(ref texture) => texture.into(),
+            None => "file://assets/icon-1024.png".into(),
+        };
+        let image = egui::Image::new(image_source)
+            .max_width(100.0)
+            .sense(egui::Sense {
+                click: true,
+                drag: false,
+                focusable: false,
+            });
         
         let image_widget = ui.add(image);
         if image_widget.clicked() {
@@ -78,9 +76,5 @@ impl BlitzApp {
         });
         ui.label(owned_photo.image_name.clone());
     }
-}
-
-fn fun_name(ui: &mut egui::Ui, image: Image<'_>) -> egui::Response {
-    let image_widget = ui.add(image);
-    image_widget
+    
 }
