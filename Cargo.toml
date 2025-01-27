@@ -30,6 +30,7 @@ serde = { version = "1", features = ["derive"] }
 rfd = "0.13"
 
 open = "5"
+futures = "0.3"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

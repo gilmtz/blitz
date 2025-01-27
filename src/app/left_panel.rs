@@ -2,7 +2,7 @@ use std::
     sync::{Arc, RwLock}
 ;
 
-use egui::{Image, ImageSource};
+use egui::ImageSource;
 
 use super::{context_menu, BlitzApp, ImageInfo, Rating};
 
