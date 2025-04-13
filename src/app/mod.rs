@@ -27,6 +27,23 @@ pub struct BlitzApp {
     max_texture_count: usize,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+pub struct ImageInfo {
+    path_processed: PathBuf,
+    path_raw: Option<PathBuf>,
+    rating: Rating,
+    #[serde(skip)]
+    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
+    image_name: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
+enum Rating {
+    Unrated,
+    Approve,
+    Remove,
+}
+
 impl Default for BlitzApp {
     fn default() -> Self {
         Self {
@@ -205,23 +222,6 @@ fn go_to_previous_picture(template_app: &mut BlitzApp) {
         Some(index) => template_app.photos_index = index,
         None => todo!("we rated everything so now we die"),
     }
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
-pub struct ImageInfo {
-    path_processed: PathBuf,
-    path_raw: Option<PathBuf>,
-    rating: Rating,
-    #[serde(skip)]
-    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
-    image_name: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
-enum Rating {
-    Unrated,
-    Approve,
-    Remove,
 }
 
 fn commit_culling(
