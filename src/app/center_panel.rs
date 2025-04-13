@@ -3,8 +3,10 @@ use std::sync::Arc;
 use super::BlitzApp;
 
 use egui::{Color32, Vec2};
-use rfd::FileHandle;
 use futures::executor::block_on;
+
+#[cfg(not(target_arch = "wasm32"))]
+use rfd::FileHandle;
 
 impl BlitzApp {
     pub fn update_center_panel(&mut self, ctx: &egui::Context) {
@@ -26,7 +28,10 @@ impl BlitzApp {
                     match *texture_handle {
                         Some(ref texture) => self.display_image(texture, max_width, max_height, ui, ctx, &current_image),
                         None => {
+                            todo!("Implement phot display in wasm");
+                            #[cfg(not(target_arch = "wasm32"))]
                             let file_handle = FileHandle::from(current_image.path_processed.clone());
+                            #[cfg(not(target_arch = "wasm32"))]
                             self.hot_load_image(
                                 file_handle,
                                 max_width, 
@@ -84,6 +89,7 @@ impl BlitzApp {
         ui.label(current_image.image_name.clone())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn hot_load_image(
         &mut self,
         file_handle: FileHandle,

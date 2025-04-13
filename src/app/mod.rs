@@ -8,6 +8,7 @@ use std::{
 
 use egui::Key;
 use ron::ser::PrettyConfig;
+use futures::Future;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -71,9 +72,13 @@ impl BlitzApp {
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
             save_culling_progress(&self.photo_dir, &self.photos);
+
+            #[cfg(not(target_arch = "wasm32"))]
             if let Some(path) = pick_folder() {
                 self.open_folder_action(ui, path);
             }
+            #[cfg(target_arch = "wasm32")]
+            self.open_folder_action_wasm(ui);
         }
 
         if ui.button("Commit choices").clicked() {
@@ -157,16 +162,7 @@ fn pick_folder() -> Option<PathBuf> {
 
 #[cfg(target_arch = "wasm32")]
 fn pick_folder() -> Option<PathBuf> {
-    let task = rfd::AsyncFileDialog::new().pick_file();
-    execute(async move {
-        let file = task.await;
-        if let Some(file) = file {
-            let mut path =  file.path().to_path_buf();
-            path.pop();
-            return Some(path);
-        }
-    });
-    None
+    todo!("implement pick folder")
 }
 
 #[cfg(target_arch = "wasm32")]
