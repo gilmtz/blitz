@@ -3,11 +3,11 @@ use std::{
     io::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
+    thread,
 };
 
 use egui::Key;
-use models::{ImageInfo, Rating};
-use open_folder_wasm::ImageFile;
+use models::{ImageInfo, Rating, ImageFile};
 use ron::ser::PrettyConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.

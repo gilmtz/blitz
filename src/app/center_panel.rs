@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::BlitzApp;
 
 use egui::{Color32, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
 use futures::executor::block_on;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -32,6 +33,7 @@ impl BlitzApp {
                 
             }
 
+            #[cfg(not(target_arch = "wasm32"))]
             if self.photos.len() > 0 {
                 let current_image = self.photos[self.photos_index].read().unwrap().clone();
                 let max_height = ui.available_height();
@@ -41,10 +43,7 @@ impl BlitzApp {
                     match *texture_handle {
                         Some(ref texture) => self.display_image(texture, max_width, max_height, ui, ctx, &current_image),
                         None => {
-                            todo!("Implement phot display in wasm");
-                            #[cfg(not(target_arch = "wasm32"))]
                             let file_handle = FileHandle::from(current_image.path_processed.clone());
-                            #[cfg(not(target_arch = "wasm32"))]
                             self.hot_load_image(
                                 file_handle,
                                 max_width, 

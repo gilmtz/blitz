@@ -13,13 +13,7 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsValue;
 use web_sys::{console, js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
 
-use super::{BlitzApp, ImageInfo, Rating};
-
-#[derive(Debug)]
-pub struct ImageFile {
-    pub name: String,
-    pub data: Vec<u8>,
-}
+use super::{models::ImageFile, BlitzApp, ImageInfo, Rating};
 
 #[cfg(target_arch = "wasm32")]
 impl BlitzApp {

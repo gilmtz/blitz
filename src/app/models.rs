@@ -1,15 +1,9 @@
 use std::{
-    fs::{self},
-    io::{self},
     path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex },
 };
 
-use egui::Key;
-use open_folder_wasm::ImageFile;
-use ron::ser::PrettyConfig;
-
-use super::{open_folder_wasm, BlitzApp};
+use super::{BlitzApp};
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ImageInfo {
@@ -20,6 +14,12 @@ pub struct ImageInfo {
     #[serde(skip)]
     pub texture: Arc<Mutex<Option<egui::TextureHandle>>>,
     pub image_name: String,
+}
+
+#[derive(Debug)]
+pub struct ImageFile {
+    pub name: String,
+    pub data: Vec<u8>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]

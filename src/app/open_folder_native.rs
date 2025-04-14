@@ -7,10 +7,14 @@ use std::{
 };
 
 use egui::{ColorImage, TextureHandle};
-use futures::channel::oneshot;
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::JsFuture;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
+#[cfg(target_arch = "wasm32")]
 use web_sys::{console, js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
 
 use super::{BlitzApp, ImageInfo, Rating};
