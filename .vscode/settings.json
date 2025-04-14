@@ -1,3 +1,9 @@
 {
-    "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    }
 }

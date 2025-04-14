@@ -19,6 +19,19 @@ impl BlitzApp {
 
             self.handle_user_input(ctx, ui);
 
+            if self.image_files.len() > 0 {
+                let file = self.image_files.get(0);
+                match file {
+                    Some(image_file) => {
+                        let bytes: Arc<[u8]> = image_file.data.clone().into(); 
+                        let image = egui::Image::from_bytes("bytes://my_logo.jpg", bytes);
+                        let image_widget = ui.add(image);
+                    },
+                    None => todo!(),
+                }
+                
+            }
+
             if self.photos.len() > 0 {
                 let current_image = self.photos[self.photos_index].read().unwrap().clone();
                 let max_height = ui.available_height();

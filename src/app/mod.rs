@@ -3,60 +3,31 @@ use std::{
     io::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
-    thread,
 };
 
 use egui::Key;
+use models::{ImageInfo, Rating};
+use open_folder_wasm::ImageFile;
 use ron::ser::PrettyConfig;
-use futures::Future;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct BlitzApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
-    photos_index: usize,
+    pub photos_index: usize,
     #[serde(skip)]
-    uv_size: f32,
+    pub uv_size: f32,
     #[serde(skip)]
-    photos: Vec<Arc<RwLock<ImageInfo>>>,
-
-    photo_dir: PathBuf,
-    wheat_dir_target: Option<PathBuf>,
-    chaffe_dir_target: Option<PathBuf>,
-    max_texture_count: usize,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
-pub struct ImageInfo {
-    path_processed: PathBuf,
-    path_raw: Option<PathBuf>,
-    rating: Rating,
+    pub photos: Vec<Arc<RwLock<ImageInfo>>>,
     #[serde(skip)]
-    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
-    image_name: String,
+    pub image_files: Vec<ImageFile>,
+    pub photo_dir: PathBuf,
+    pub wheat_dir_target: Option<PathBuf>,
+    pub chaffe_dir_target: Option<PathBuf>,
+    pub max_texture_count: usize,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
-enum Rating {
-    Unrated,
-    Approve,
-    Remove,
-}
-
-impl Default for BlitzApp {
-    fn default() -> Self {
-        Self {
-            photos_index: 0,
-            photos: Vec::new().into(),
-            photo_dir: PathBuf::new(),
-            max_texture_count: 200,
-            uv_size: 1.0,
-            wheat_dir_target: None,
-            chaffe_dir_target: None,
-        }
-    }
-}
 
 impl BlitzApp {
     /// Called once before the first frame.
@@ -66,6 +37,7 @@ impl BlitzApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
+
 
         if let Some(storage) = cc.storage {
             let persisted_state: BlitzApp =
@@ -95,20 +67,21 @@ impl BlitzApp {
                 self.open_folder_action(ui, path);
             }
             #[cfg(target_arch = "wasm32")]
-            self.open_folder_action_wasm(ui);
+            let _ = self.open_folder_action();
         }
 
         if ui.button("Commit choices").clicked() {
             self.commit_choices(ui);
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         if ui.button("Load next textures").clicked() {
             let mut photos = (&self.photos).to_owned();
             let max_texture_count = (&self.max_texture_count).to_owned();
             let thread_ctx = ui.ctx().clone();
 
             let _handler = thread::spawn(move || {
-                open_folder::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+                open_folder_native::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
             });
         }
 
@@ -144,6 +117,7 @@ impl BlitzApp {
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
         commit_culling(&self.photos,chaffe_dir,wheat_dir);
+        #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
     
@@ -175,16 +149,6 @@ impl BlitzApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn pick_folder() -> Option<PathBuf> {
     rfd::FileDialog::new().pick_folder()
-}
-
-#[cfg(target_arch = "wasm32")]
-fn pick_folder() -> Option<PathBuf> {
-    todo!("implement pick folder")
-}
-
-#[cfg(target_arch = "wasm32")]
-fn execute<F: Future<Output = ()> + 'static>(f: F) {
-    wasm_bindgen_futures::spawn_local(f);
 }
 
 impl eframe::App for BlitzApp {
@@ -343,6 +307,7 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -350,6 +315,8 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
+
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -357,6 +324,8 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
+
         })));
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
@@ -383,6 +352,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -390,6 +360,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -397,6 +368,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
@@ -423,6 +395,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -430,6 +403,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -437,6 +411,7 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -444,6 +419,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
+            file_bytes: vec![],
         })));
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
@@ -480,6 +456,7 @@ mod tests {
             rating: Rating::Remove,
             texture: Arc::new(Mutex::new(None)),
             image_name: "1.jpg".to_string(),
+            file_bytes: vec![], // Added field
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("tmp/2.jpg"),
@@ -487,6 +464,7 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "2.jpg".to_string(),
+            file_bytes: vec![], // Added field
         })));
         test_photos.push(Arc::new(RwLock::new(ImageInfo {
             path_processed: PathBuf::from("tmp/3.jpg"),
@@ -494,6 +472,7 @@ mod tests {
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "3.jpg".to_string(),
+            file_bytes: vec![], // Added field
         })));
 
         let temp_path = PathBuf::from("tmp");
@@ -568,10 +547,13 @@ mod tests {
     }
 }
 
-
+mod models;
 mod right_panel;
 mod left_panel;
 mod center_panel;
-mod open_folder;
 mod context_menu;
 mod menu_bar;
+#[cfg(not(target_arch = "wasm32"))]
+mod open_folder_native;
+#[cfg(target_arch = "wasm32")]
+mod open_folder_wasm;
