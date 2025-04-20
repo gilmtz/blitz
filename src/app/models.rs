@@ -27,8 +27,7 @@ impl Default for BlitzApp {
     fn default() -> Self {
         Self {
             photos_index: 0,
-            photos: Arc::new(Vec::new().into()),
-            // image_files: Arc::new(Vec::new().into()),
+            photos: Vec::new().into(),
             photo_dir: PathBuf::new(),
             max_texture_count: 200,
             uv_size: 1.0,

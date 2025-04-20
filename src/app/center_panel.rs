@@ -1,8 +1,8 @@
-use std::{fmt::format, sync::Arc};
+use std::sync::Arc;
 
 use super::BlitzApp;
 
-use egui::{load::Bytes, Color32, Vec2};
+use egui::{Color32, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use futures::executor::block_on;
 
@@ -21,14 +21,14 @@ impl BlitzApp {
             );
             self.handle_user_input(ctx, ui);
 
-            if let Ok(photos) = (self.photos.clone()).try_read() {
+            if let photos = self.photos.clone() {
                 if !photos.is_empty() {
                     match photos.get(photos_index) {
                         Some(current_image) => {
                             let max_height = ui.available_height();
                             let max_width = ui.available_width();
 
-                            if let Ok(image_info) = current_image.try_read() {
+                            if let image_info = current_image {
                                 self.display_image(max_width, max_height, ui, ctx, &image_info);
 
                             }

@@ -3,7 +3,6 @@ use std::{
     io::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
-    thread,
 };
 
 use egui::Key;
@@ -20,9 +19,7 @@ pub struct BlitzApp {
     #[serde(skip)]
     pub uv_size: f32,
     #[serde(skip)]
-    pub photos: Arc<RwLock<Vec<Arc<RwLock<ImageInfo>>>>>,
-    // #[serde(skip)]
-    // pub image_files: Arc<Mutex<Vec<ImageFile>>>,
+    pub photos: Vec<ImageInfo>,
     pub photo_dir: PathBuf,
     pub wheat_dir_target: Option<PathBuf>,
     pub chaffe_dir_target: Option<PathBuf>,
@@ -97,12 +94,12 @@ impl BlitzApp {
         }
 
         if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-            self.photos.read().unwrap()[self.photos_index].write().unwrap().rating = Rating::Remove;
-            self.photos.read().unwrap()[self.photos_index].write().unwrap().texture = Arc::new(Mutex::new(None));
+            self.photos[self.photos_index].rating = Rating::Remove;
+            self.photos[self.photos_index].texture = Arc::new(Mutex::new(None));
             go_to_next_picture(self);
         }
         if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-            self.photos.read().unwrap()[self.photos_index].write().unwrap().rating = Rating::Approve;
+            self.photos[self.photos_index].rating = Rating::Approve;
             go_to_next_picture(self);
         }
     }
@@ -119,7 +116,7 @@ impl BlitzApp {
         };
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
-        commit_culling(&self.photos.read().unwrap(),chaffe_dir,wheat_dir);
+        commit_culling(&self.photos,chaffe_dir,wheat_dir);
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
@@ -179,7 +176,7 @@ impl eframe::App for BlitzApp {
 
 fn go_to_next_picture(template_app: &mut BlitzApp) {
     log::info!("Go to next picture");
-    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos.read().unwrap()) {
+    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos) {
         Some(index) => {
             log::info!("Moving to index: {}", index);
             template_app.photos_index = index;
@@ -190,14 +187,14 @@ fn go_to_next_picture(template_app: &mut BlitzApp) {
 }
 
 fn go_to_previous_picture(template_app: &mut BlitzApp) {
-    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos.read().unwrap()) {
+    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos) {
         Some(index) => template_app.photos_index = index,
         None => todo!("we rated everything so now we die"),
     }
 }
 
 fn commit_culling(
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
     chaffe_dir: &PathBuf,
     wheat_dir: &PathBuf,
 ) -> Vec<Result<(), io::Error>> {
@@ -208,14 +205,14 @@ fn commit_culling(
     return committing_results;
 }
 
-fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &Arc<RwLock<ImageInfo>>) {
-    match image.read().unwrap().rating {
+fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &ImageInfo) {
+    match image.rating {
         Rating::Unrated => {}
         Rating::Approve => {
-            committing_results.push(move_image_into_dir(&wheat_dir, &image.read().unwrap()));
+            committing_results.push(move_image_into_dir(&wheat_dir, &image));
         }
         Rating::Remove => {
-            committing_results.push(move_image_into_dir(&chaffe_dir, &image.read().unwrap()));
+            committing_results.push(move_image_into_dir(&chaffe_dir, &image));
         }
     }
 }
@@ -237,9 +234,9 @@ fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Arc<RwLock<Vec<Arc<RwLock<ImageInfo>>>>>) -> io::Result<()>  {
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Result<()>  {
     // This handles the initial opening case
-    if photos.read().unwrap().is_empty() {
+    if photos.is_empty() {
         return Ok(());
     }
     let mut blitz_dir = photo_dir.clone();
@@ -263,7 +260,7 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Arc<RwLock<Vec<Arc<RwLock
 
 fn get_next_picture_index(
     starting_index: usize,
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
 ) -> Option<usize> {
     log::info!("Get next picture index");
     let mut candidate_index = starting_index.clone();
@@ -272,7 +269,7 @@ fn get_next_picture_index(
         if candidate_index >= photos.len() {
             candidate_index = 0
         }
-        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
+        if photos[candidate_index].rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
@@ -283,7 +280,7 @@ fn get_next_picture_index(
 
 fn get_previous_picture_index(
     starting_index: usize,
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
 ) -> Option<usize> {
     let mut candidate_index = starting_index.clone();
     loop {
@@ -292,7 +289,7 @@ fn get_previous_picture_index(
         } else {
             candidate_index = candidate_index - 1;
         }
-        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
+        if photos[candidate_index].rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
@@ -308,32 +305,32 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_no_ratings() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into()
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
+            data: [].into(),
 
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
+            data: [].into(),
 
-        })));
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(Some(1), next_picture_index);
@@ -353,30 +350,30 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_full_list() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
+            data: [].into(),
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(None, next_picture_index);
@@ -396,38 +393,38 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_skip_rated() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            file_bytes: vec![],
-        })));
+            data: [].into(),
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(Some(2), next_picture_index);
@@ -457,30 +454,30 @@ mod tests {
 
         let mut test_photos = Vec::new();
 
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/1.jpg"),
             path_raw: None,
             rating: Rating::Remove,
             texture: Arc::new(Mutex::new(None)),
             image_name: "1.jpg".to_string(),
-            file_bytes: vec![], // Added field
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(), // Added field
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/2.jpg"),
             path_raw: None,
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "2.jpg".to_string(),
-            file_bytes: vec![], // Added field
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(), // Added field
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/3.jpg"),
             path_raw: None,
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "3.jpg".to_string(),
-            file_bytes: vec![], // Added field
-        })));
+            data: [].into(), // Added field
+        });
 
         let temp_path = PathBuf::from("tmp");
         let chaffe_path = PathBuf::from("tmp/chaffe");

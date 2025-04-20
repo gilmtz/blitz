@@ -3,7 +3,6 @@ use std::{
     fs::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
-    thread,
 };
 
 use egui::{ColorImage, TextureHandle};
@@ -32,30 +31,26 @@ impl BlitzApp {
 
         match fs::read(blitz_dir.clone()) {
             Ok(seralized_ron) => {
-                self.photos = Arc::new(Vec::new().into());
+                self.photos = Vec::new().into();
                 match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
                     Ok(stored_state) => {
                         let stored_images = stored_state.clone();
-                        if let Ok(mut photos) = self.photos.try_write() {
-                            init_photos_state(
-                                self.photo_dir.clone(),
-                                &mut photos,
-                                Some(stored_images),
-                            );
-                        }
+                        init_photos_state(
+                            self.photo_dir.clone(),
+                            &mut self.photos,
+                            Some(stored_images),
+                        );
                         
                     }
                     Err(_) => todo!("failed to deserialized the previous state"),
                 }
             }
             Err(_) => {
-                if let Ok(mut photos) = self.photos.try_write() {
-                    init_photos_state(
-                        self.photo_dir.clone(),
-                        &mut photos,
-                        None,
-                    );
-                }
+                init_photos_state(
+                    self.photo_dir.clone(),
+                    &mut self.photos,
+                    None,
+                );
             }
         }
 
@@ -78,7 +73,7 @@ impl BlitzApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn init_photos_state(
     photo_dir: PathBuf,
-    photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &mut Vec<ImageInfo>,
     stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>,
 ) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
@@ -127,7 +122,7 @@ pub fn load_all_textures_into_memory(
 fn init_image_info(
     dir_entry: fs::DirEntry,
     stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
-) -> Option<Arc<RwLock<ImageInfo>>> {
+) -> Option<ImageInfo> {
     let entry_path = dir_entry.path();
     let file_extension = match entry_path.extension() {
         Some(extension) => extension.to_owned(),
@@ -153,7 +148,7 @@ fn init_image_info(
         image_name: filename,
         data: data,
     };
-    Some(Arc::new(RwLock::new(image_info)))
+    Some(image_info)
 }
 
 fn load_texture_into_memory(

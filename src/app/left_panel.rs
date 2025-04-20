@@ -4,7 +4,7 @@ use std::
 
 use egui::ImageSource;
 
-use super::{context_menu, BlitzApp, ImageInfo, Rating};
+use super::{BlitzApp, ImageInfo, Rating};
 
 impl BlitzApp {
     pub fn update_left_panel(&mut self, ctx: &egui::Context) {
