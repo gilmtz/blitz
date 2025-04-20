@@ -7,8 +7,10 @@ use std::{
 };
 
 use egui::Key;
-use models::{ImageInfo, Rating, ImageFile};
+use log::{log, Level};
+use models::{ImageInfo, Rating};
 use ron::ser::PrettyConfig;
+use web_sys::console;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -19,9 +21,9 @@ pub struct BlitzApp {
     #[serde(skip)]
     pub uv_size: f32,
     #[serde(skip)]
-    pub photos: Vec<Arc<RwLock<ImageInfo>>>,
-    #[serde(skip)]
-    pub image_files: Vec<ImageFile>,
+    pub photos: Arc<RwLock<Vec<Arc<RwLock<ImageInfo>>>>>,
+    // #[serde(skip)]
+    // pub image_files: Arc<Mutex<Vec<ImageFile>>>,
     pub photo_dir: PathBuf,
     pub wheat_dir_target: Option<PathBuf>,
     pub chaffe_dir_target: Option<PathBuf>,
@@ -60,6 +62,7 @@ impl BlitzApp {
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
+            log!(Level::Info,"lkj;lkjsadf");
             save_culling_progress(&self.photo_dir, &self.photos);
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -86,6 +89,7 @@ impl BlitzApp {
         }
 
         if ctx.input(|i| i.key_pressed(Key::D)) {
+            log!(Level::Info, "D pressed");
             go_to_next_picture(self);
         }
 
@@ -94,12 +98,12 @@ impl BlitzApp {
         }
 
         if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-            self.photos[self.photos_index].write().unwrap().rating = Rating::Remove;
-            self.photos[self.photos_index].write().unwrap().texture = Arc::new(Mutex::new(None));
+            self.photos.read().unwrap()[self.photos_index].write().unwrap().rating = Rating::Remove;
+            self.photos.read().unwrap()[self.photos_index].write().unwrap().texture = Arc::new(Mutex::new(None));
             go_to_next_picture(self);
         }
         if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-            self.photos[self.photos_index].write().unwrap().rating = Rating::Approve;
+            self.photos.read().unwrap()[self.photos_index].write().unwrap().rating = Rating::Approve;
             go_to_next_picture(self);
         }
     }
@@ -116,7 +120,7 @@ impl BlitzApp {
         };
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
-        commit_culling(&self.photos,chaffe_dir,wheat_dir);
+        commit_culling(&self.photos.read().unwrap(),chaffe_dir,wheat_dir);
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
@@ -175,14 +179,19 @@ impl eframe::App for BlitzApp {
 }
 
 fn go_to_next_picture(template_app: &mut BlitzApp) {
-    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos) {
-        Some(index) => template_app.photos_index = index,
+    console::info_1(&"Go to next picture".into());
+    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos.read().unwrap()) {
+        Some(index) => {
+            console::info_1(&format!("Moving to index: {}", index).into());
+            template_app.photos_index = index;
+
+        },
         None => todo!("we rated everything so now we die"),
     }
 }
 
 fn go_to_previous_picture(template_app: &mut BlitzApp) {
-    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos) {
+    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos.read().unwrap()) {
         Some(index) => template_app.photos_index = index,
         None => todo!("we rated everything so now we die"),
     }
@@ -229,10 +238,10 @@ fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>) {
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Arc<RwLock<Vec<Arc<RwLock<ImageInfo>>>>>) -> io::Result<()>  {
     // This handles the initial opening case
-    if photos.len() < 1 {
-        return;
+    if photos.read().unwrap().is_empty() {
+        return Ok(());
     }
     let mut blitz_dir = photo_dir.clone();
     blitz_dir.push(".blitz");
@@ -244,21 +253,20 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>
 
     blitz_dir.push("storage.ron");
 
-    let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new());
-    match ron_str {
-        Ok(serialized_ron) => {
-            let _ = fs::write(blitz_dir, serialized_ron);
-        }
-        Err(_) => {
-            todo!("serializing didn't work")
-        }
-    }
+    // Serialize and write
+    let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    
+    fs::write(blitz_dir, ron_str)?;
+
+    Ok(())
 }
 
 fn get_next_picture_index(
     starting_index: usize,
     photos: &Vec<Arc<RwLock<ImageInfo>>>,
 ) -> Option<usize> {
+    console::info_1(&"Get next picture index".into());
     let mut candidate_index = starting_index.clone();
     loop {
         candidate_index += 1;

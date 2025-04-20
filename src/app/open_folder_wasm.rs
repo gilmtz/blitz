@@ -13,20 +13,34 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsValue;
 use web_sys::{console, js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
 
-use super::{models::ImageFile, BlitzApp, ImageInfo, Rating};
+use super::{BlitzApp, ImageInfo, Rating};
+
+pub struct ImageFile {
+    pub data: Arc<[u8]>,
+    pub name: String,
+}
+
 
 #[cfg(target_arch = "wasm32")]
 impl BlitzApp {
     pub fn open_folder_action(&mut self) {
-        // Use a pointer to only the image_files field
-        let image_files_ptr = &mut self.image_files as *mut Vec<ImageFile>;
+        let image_files = self.photos.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let files = Self::open_folder_action_wasm().await.unwrap_or_else(|err| {
                 console::error_1(&format!("Error opening folder: {:?}", err).into());
                 Vec::new()
             });
-            unsafe {
-                *image_files_ptr = files;
+            let mut data_guard = image_files.write().unwrap();
+            for file in files {
+
+                data_guard.push(Arc::new(ImageInfo{
+                    data: file.data,
+                    image_name: file.name,
+                    path_processed: PathBuf::new(),
+                    path_raw: None,
+                    rating: Rating::Unrated,
+                    texture: Arc::new(Mutex::new(None)),
+                }.into()));
             }
         });
     }
@@ -141,7 +155,7 @@ impl BlitzApp {
         //    Create a Uint8Array view onto the ArrayBuffer
         let byte_array = Uint8Array::new(&array_buffer);
         //    Copy the data into a Rust Vec<u8>
-        let bytes: Vec<u8> = byte_array.to_vec();
+        let bytes: Arc<[u8]> = Arc::from(byte_array.to_vec());
     
         console::log_1(&format!("Read {} bytes from file: {}", bytes.len(), file_handle.name()).into());
     

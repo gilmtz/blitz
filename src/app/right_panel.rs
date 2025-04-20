@@ -9,11 +9,12 @@ impl BlitzApp {
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
             ui.label("Keep");
 
-            for photo in self.photos.iter().rev() {
-                render_photo_image(photo, ui);
-            }
+        //     for photo in photos.iter().rev() {
+        //         render_photo_image(photo, ui);
+        //     }
         });
     }
+    
 }
 
 fn render_photo_image(photo: &Arc<RwLock<super::ImageInfo>>, ui: &mut egui::Ui) {

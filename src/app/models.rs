@@ -9,17 +9,11 @@ use super::{BlitzApp};
 pub struct ImageInfo {
     pub path_processed: PathBuf,
     pub path_raw: Option<PathBuf>,
-    pub file_bytes: Vec<u8>,
+    pub data: Arc<[u8]>,
     pub rating: Rating,
     #[serde(skip)]
     pub texture: Arc<Mutex<Option<egui::TextureHandle>>>,
     pub image_name: String,
-}
-
-#[derive(Debug)]
-pub struct ImageFile {
-    pub name: String,
-    pub data: Vec<u8>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
@@ -33,8 +27,8 @@ impl Default for BlitzApp {
     fn default() -> Self {
         Self {
             photos_index: 0,
-            photos: Vec::new().into(),
-            image_files: Vec::new().into(),
+            photos: Arc::new(Vec::new().into()),
+            // image_files: Arc::new(Vec::new().into()),
             photo_dir: PathBuf::new(),
             max_texture_count: 200,
             uv_size: 1.0,

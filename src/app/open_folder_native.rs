@@ -19,13 +19,9 @@ use web_sys::{console, js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8
 
 use super::{BlitzApp, ImageInfo, Rating};
 
-pub struct ImageFile {
-    name: String,
-    data: Vec<u8>,
-}
-#[cfg(not(target_arch = "wasm32"))]
 impl BlitzApp {
     // open folder handles initialization of the app and the loading of the images
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn open_folder_action(&mut self, ui: &mut egui::Ui, path: PathBuf) {
         self.photo_dir = path.clone();
 
@@ -66,6 +62,7 @@ impl BlitzApp {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn init_photos_state(
     photo_dir: PathBuf,
     photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
@@ -137,7 +134,7 @@ fn init_image_info(
         rating: get_rating_for_image(stored_photos, dir_entry.path().clone()),
         texture: Arc::new(Mutex::new(None)),
         image_name: filename,
-        file_bytes: vec![]
+        data: vec![]
     };
     Some(Arc::new(RwLock::new(image_info)))
 }

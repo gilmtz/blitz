@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::format, sync::Arc};
 
 use super::BlitzApp;
 
@@ -17,21 +17,30 @@ impl BlitzApp {
             ui.add(
                 egui::Slider::new(&mut self.max_texture_count, 0..=500).text("Max Texture Count"),
             );
-
             self.handle_user_input(ctx, ui);
 
-            if self.image_files.len() > 0 {
-                let file = self.image_files.get(0);
-                match file {
-                    Some(image_file) => {
-                        let bytes: Arc<[u8]> = image_file.data.clone().into(); 
-                        let image = egui::Image::from_bytes("bytes://my_logo.jpg", bytes);
-                        let image_widget = ui.add(image);
-                    },
-                    None => todo!(),
+            if let Ok(photos) = (&self.photos).try_read() {
+                if !photos.is_empty() {
+                    match photos.get(self.photos_index) {
+                        Some(image_file) => {
+                            if let Ok(image_file_guard) = image_file.try_read() {
+                                let bytes: Arc<[u8]> = image_file_guard.data.clone();
+                                let byte_path = format!("bytes://{}", image_file_guard.image_name);
+                                let image = egui::Image::from_bytes(byte_path, bytes);
+                                let image_widget = ui.add(image);
+                            }
+                        }
+                        None => todo!(),
+                    }
                 }
-                
             }
+
+            // match self.image_files.try_lock() {
+            //     Ok(value_guard) => {
+
+            //     },
+            //     Err(_) => todo!(),
+            // }
 
             #[cfg(not(target_arch = "wasm32"))]
             if self.photos.len() > 0 {
@@ -41,18 +50,26 @@ impl BlitzApp {
 
                 if let Ok(texture_handle) = current_image.texture.clone().try_lock() {
                     match *texture_handle {
-                        Some(ref texture) => self.display_image(texture, max_width, max_height, ui, ctx, &current_image),
+                        Some(ref texture) => self.display_image(
+                            texture,
+                            max_width,
+                            max_height,
+                            ui,
+                            ctx,
+                            &current_image,
+                        ),
                         None => {
-                            let file_handle = FileHandle::from(current_image.path_processed.clone());
+                            let file_handle =
+                                FileHandle::from(current_image.path_processed.clone());
                             self.hot_load_image(
                                 file_handle,
-                                max_width, 
-                                max_height, 
-                                ui, 
-                                ctx, 
-                                &current_image
+                                max_width,
+                                max_height,
+                                ui,
+                                ctx,
+                                &current_image,
                             )
-                        },
+                        }
                     };
                 }
             }
@@ -111,7 +128,7 @@ impl BlitzApp {
         ctx: &egui::Context,
         current_image: &super::ImageInfo,
     ) -> egui::Response {
-        let bytes:Arc<[u8]> = block_on(file_handle.read()).into();
+        let bytes: Arc<[u8]> = block_on(file_handle.read()).into();
         let uri = format!("bytes://{}", current_image.image_name);
         // let image_source = egui::Image::from_bytes(uri, bytes);
         let image = egui::Image::from_bytes(uri, bytes)
