@@ -11,7 +11,8 @@ use futures::{channel::oneshot, executor::block_on};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsValue;
-use web_sys::{console, js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
+use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
+use log;
 
 use super::{BlitzApp, ImageInfo, Rating};
 
@@ -27,7 +28,7 @@ impl BlitzApp {
         let image_files = self.photos.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let files = Self::open_folder_action_wasm().await.unwrap_or_else(|err| {
-                console::error_1(&format!("Error opening folder: {:?}", err).into());
+                log::error!("Error opening folder: {:?}", err);
                 Vec::new()
             });
             let mut data_guard = image_files.write().unwrap();
@@ -48,23 +49,23 @@ impl BlitzApp {
     pub async fn open_folder_action_wasm() -> Result<Vec<ImageFile>, JsValue> {
         let window = web_sys::window().expect("should still have a window");
         let promise = window.show_directory_picker().map_err(|e| {
-            console::error_1(&format!("Failed to call showDirectoryPicker: {:?}", e).into());
+            log::error!("Failed to call showDirectoryPicker: {:?}", e);
             e
         })?;
-        console::info_1(&"showDirectoryPicker called, awaiting promise...".into());
+        log::info!("showDirectoryPicker called, awaiting promise...");
         let result_value = JsFuture::from(promise).await?;
         let handle = result_value.dyn_into::<FileSystemDirectoryHandle>().map_err(|e| {
-            console::error_1(&format!("Failed to cast promise result to DirectoryHandle: {:?}", e).into());
+            log::error!("Failed to cast promise result to DirectoryHandle: {:?}", e);
             e
         })?;
-        console::info_1(&"Got directory handle!".into());
+        log::info!("Got directory handle!");
         let photos = Self::process_directory(handle).await?;
-        console::info_1(&format!("Processed {} files", photos.len()).into());
+        log::info!("Processed {} files", photos.len());
         Ok(photos)
     }
 
     pub async fn process_directory(dir_handle: FileSystemDirectoryHandle) -> Result<Vec<ImageFile>, JsValue> {
-        console::log_1(&format!("Processing directory: {}", dir_handle.name()).into());
+        log::debug!("Processing directory: {}", dir_handle.name());
 
         // 1. Get the asynchronous iterator for the directory entries (values)
         //    values() gives FileSystemHandle instances
@@ -98,19 +99,19 @@ impl BlitzApp {
 
                             match image_file {
                                 Ok(image) => {
-                                    console::log_1(&format!("Processed file: {}", image.name).into());
+                                    log::debug!("Processed file: {}", image.name);
                                     // Here you can do something with the image data
                                     // For example, store it in a vector or process it further
                                     photos.push(image);
                                 }
                                 Err(e) => {
-                                    console::error_1(&format!("Error processing file: {:?}", e).into());
+                                    log::error!("Error processing file: {:?}", e);
                                 }
                                 
                             }
                         }
                         Err(e) => {
-                            console::error_1(&format!("Error casting to FileSystemFileHandle: {:?}", e).into());
+                            log::error!("Error casting to FileSystemFileHandle: {:?}", e);
                         }
                     }
                 }
@@ -118,30 +119,30 @@ impl BlitzApp {
                     // It's a directory, cast to FileSystemDirectoryHandle
                      match handle.dyn_into::<FileSystemDirectoryHandle>() {
                         Ok(sub_dir_handle) => {
-                            console::log_1(&format!("Found subdirectory: {}", sub_dir_handle.name()).into());
+                            log::debug!("Found subdirectory: {}", sub_dir_handle.name());
                             // --- Optional: Recurse into subdirectory ---
                             // if let Err(e) = process_directory(sub_dir_handle).await {
-                            //     console::error_1(&format!("Error processing subdirectory: {:?}", e).into());
+                            //     log::error!("Error processing subdirectory: {:?}", e);
                             // }
                         }
                         Err(e) => {
-                           console::error_1(&format!("Error casting to FileSystemDirectoryHandle: {:?}", e).into());
+                           log::error!("Error casting to FileSystemDirectoryHandle: {:?}", e);
                         }
                      }
                 }
                 _ => {
                     // Handle potential other kinds if the API evolves
-                    console::warn_1(&"Found handle of unknown kind".into());
+                    log::warn!("Found handle of unknown kind");
                 }
             }
         }
     
-        console::log_1(&format!("Finished processing directory: {}", dir_handle.name()).into());
+        log::debug!("Finished processing directory: {}", dir_handle.name());
         Ok(photos)   
     }
 
     async fn process_file(file_handle: FileSystemFileHandle) -> Result<ImageFile, JsValue> {
-        console::log_1(&format!("Processing file: {}", file_handle.name()).into());
+        log::debug!("Processing file: {}", file_handle.name());
     
         // 5. Get the File object from the handle
         let file_promise = file_handle.get_file(); // Returns Promise<File>
@@ -157,7 +158,7 @@ impl BlitzApp {
         //    Copy the data into a Rust Vec<u8>
         let bytes: Arc<[u8]> = Arc::from(byte_array.to_vec());
     
-        console::log_1(&format!("Read {} bytes from file: {}", bytes.len(), file_handle.name()).into());
+        log::debug!("Read {} bytes from file: {}", bytes.len(), file_handle.name());
     
         Ok(ImageFile {
             name: file_handle.name(),

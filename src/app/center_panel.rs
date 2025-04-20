@@ -2,7 +2,7 @@ use std::{fmt::format, sync::Arc};
 
 use super::BlitzApp;
 
-use egui::{Color32, Vec2};
+use egui::{load::Bytes, Color32, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use futures::executor::block_on;
 
@@ -11,6 +11,8 @@ use rfd::FileHandle;
 
 impl BlitzApp {
     pub fn update_center_panel(&mut self, ctx: &egui::Context) {
+        let photos_index = self.photos_index;
+
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("blitz");
@@ -19,60 +21,35 @@ impl BlitzApp {
             );
             self.handle_user_input(ctx, ui);
 
-            if let Ok(photos) = (&self.photos).try_read() {
+            if let Ok(photos) = (self.photos.clone()).try_read() {
                 if !photos.is_empty() {
-                    match photos.get(self.photos_index) {
-                        Some(image_file) => {
-                            if let Ok(image_file_guard) = image_file.try_read() {
-                                let bytes: Arc<[u8]> = image_file_guard.data.clone();
-                                let byte_path = format!("bytes://{}", image_file_guard.image_name);
-                                let image = egui::Image::from_bytes(byte_path, bytes);
-                                let image_widget = ui.add(image);
+                    match photos.get(photos_index) {
+                        Some(current_image) => {
+                            let max_height = ui.available_height();
+                            let max_width = ui.available_width();
+
+                            if let Ok(image_info) = current_image.try_read() {
+                                self.display_image(max_width, max_height, ui, ctx, &image_info);
+
                             }
                         }
-                        None => todo!(),
+                        None => todo!("image is not there"),
                     }
                 }
             }
 
-            // match self.image_files.try_lock() {
-            //     Ok(value_guard) => {
+            // #[cfg(not(target_arch = "wasm32"))]
+            // if let Ok(photos) = (&self.photos).try_read() {
+            //     if photos.len() > 0 {
+            //         let current_image = photos[photos_index].read().unwrap().clone();
+            //         let max_height = ui.available_height();
+            //         let max_width = ui.available_width();
 
-            //     },
-            //     Err(_) => todo!(),
+            //         self.display_image(max_width, max_height, ui, ctx, &current_image);
+            //     }
             // }
 
-            #[cfg(not(target_arch = "wasm32"))]
-            if self.photos.len() > 0 {
-                let current_image = self.photos[self.photos_index].read().unwrap().clone();
-                let max_height = ui.available_height();
-                let max_width = ui.available_width();
-
-                if let Ok(texture_handle) = current_image.texture.clone().try_lock() {
-                    match *texture_handle {
-                        Some(ref texture) => self.display_image(
-                            texture,
-                            max_width,
-                            max_height,
-                            ui,
-                            ctx,
-                            &current_image,
-                        ),
-                        None => {
-                            let file_handle =
-                                FileHandle::from(current_image.path_processed.clone());
-                            self.hot_load_image(
-                                file_handle,
-                                max_width,
-                                max_height,
-                                ui,
-                                ctx,
-                                &current_image,
-                            )
-                        }
-                    };
-                }
-            }
+            
 
             ui.separator();
 
@@ -88,34 +65,65 @@ impl BlitzApp {
         });
     }
 
-    fn display_image(
+
+    fn display_image_with_bytes(
         &mut self,
-        texture: &egui::TextureHandle,
         max_width: f32,
         max_height: f32,
         ui: &mut egui::Ui,
         ctx: &egui::Context,
         current_image: &super::ImageInfo,
     ) -> egui::Response {
-        let image = egui::Image::new(texture)
-            .max_width(max_width)
-            .max_height(max_height)
-            .sense(egui::Sense {
-                click: false,
-                drag: true,
-                focusable: false,
-            });
+
+        let bytes: Arc<[u8]> = current_image.data.clone();
+        let byte_path = format!("bytes://{}", current_image.image_name);
+        // let byte_path = "bytes://asdf.jpeg";
+        let image = egui::Image::from_bytes(byte_path, bytes);
         let image_widget = ui.add(image);
-        // vec2
-        if image_widget.dragged() {
-            // image.uv(egui::Rect {min:  [0.0, 0.0].into(), max: [0.5, 0.5].into()});
-            println!("Image dragged");
-        }
-        if image_widget.hovered() {
-            self.handle_hover_action(ctx, image_widget, texture);
-            // println!("{}", image_widget.rect);
-        }
-        ui.label(current_image.image_name.clone())
+        return image_widget;
+    }
+
+    fn display_image(
+        &mut self,
+        max_width: f32,
+        max_height: f32,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        current_image: &super::ImageInfo,
+    ) -> egui::Response {
+
+        match current_image.texture.try_lock() {
+            Ok(texture_guard) => {
+                match &*texture_guard {
+                    Some(texture) => {
+                        let image = egui::Image::new(texture)
+                        .max_width(max_width)
+                        .max_height(max_height)
+                        .sense(egui::Sense {
+                            click: false,
+                            drag: true,
+                            focusable: false,
+                        });
+                        let image_widget = ui.add(image);
+                        // vec2
+                        if image_widget.dragged() {
+                            // image.uv(egui::Rect {min:  [0.0, 0.0].into(), max: [0.5, 0.5].into()});
+                            println!("Image dragged");
+                        }
+                        if image_widget.hovered() {
+                            self.handle_hover_action(ctx, image_widget, texture);
+                            // println!("{}", image_widget.rect);
+                        }
+                        ui.label(current_image.image_name.clone())
+                    },
+                    None => {
+                        self.display_image_with_bytes(max_width, max_height, ui, ctx, current_image)
+                    },
+                }
+                
+            },
+            Err(_) => todo!("didn't handle the err in display image"),
+        }     
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -129,7 +137,8 @@ impl BlitzApp {
         current_image: &super::ImageInfo,
     ) -> egui::Response {
         let bytes: Arc<[u8]> = block_on(file_handle.read()).into();
-        let uri = format!("bytes://{}", current_image.image_name);
+        // let uri = format!("bytes://{}", current_image.image_name);
+        let uri = "bytes://asdf.jpeg";
         // let image_source = egui::Image::from_bytes(uri, bytes);
         let image = egui::Image::from_bytes(uri, bytes)
             .max_width(max_width)

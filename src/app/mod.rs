@@ -10,7 +10,6 @@ use egui::Key;
 use log::{log, Level};
 use models::{ImageInfo, Rating};
 use ron::ser::PrettyConfig;
-use web_sys::console;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -77,16 +76,16 @@ impl BlitzApp {
             self.commit_choices(ui);
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        if ui.button("Load next textures").clicked() {
-            let mut photos = (&self.photos).to_owned();
-            let max_texture_count = (&self.max_texture_count).to_owned();
-            let thread_ctx = ui.ctx().clone();
+        // #[cfg(not(target_arch = "wasm32"))]
+        // if ui.button("Load next textures").clicked() {
+        //     let mut photos = (&self.photos).to_owned();
+        //     let max_texture_count = (&self.max_texture_count).to_owned();
+        //     let thread_ctx = ui.ctx().clone();
 
-            let _handler = thread::spawn(move || {
-                open_folder_native::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
-            });
-        }
+        //     let _handler = thread::spawn(move || {
+        //         open_folder_native::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+        //     });
+        // }
 
         if ctx.input(|i| i.key_pressed(Key::D)) {
             log!(Level::Info, "D pressed");
@@ -179,10 +178,10 @@ impl eframe::App for BlitzApp {
 }
 
 fn go_to_next_picture(template_app: &mut BlitzApp) {
-    console::info_1(&"Go to next picture".into());
+    log::info!("Go to next picture");
     match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos.read().unwrap()) {
         Some(index) => {
-            console::info_1(&format!("Moving to index: {}", index).into());
+            log::info!("Moving to index: {}", index);
             template_app.photos_index = index;
 
         },
@@ -266,7 +265,7 @@ fn get_next_picture_index(
     starting_index: usize,
     photos: &Vec<Arc<RwLock<ImageInfo>>>,
 ) -> Option<usize> {
-    console::info_1(&"Get next picture index".into());
+    log::info!("Get next picture index");
     let mut candidate_index = starting_index.clone();
     loop {
         candidate_index += 1;

@@ -47,53 +47,6 @@ impl BlitzApp {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn render_unrated_photo(
-        &mut self,
-        photo: &Arc<RwLock<ImageInfo>>,
-        ui: &mut egui::Ui,
-        index: usize,
-        owned_photo: std::sync::RwLockReadGuard<'_, ImageInfo>,
-    ) {
-        let texture_mutex = photo.read().unwrap().texture.clone();
-        match texture_mutex.try_lock() {
-            Ok(texture_handle) => self.display_thumbnail(ui, index, owned_photo, texture_handle),
-            Err(_) => {}
-        };
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn display_thumbnail(
-        &mut self, 
-        ui: &mut egui::Ui, 
-        index: usize, 
-        owned_photo: std::sync::RwLockReadGuard<'_, ImageInfo>, 
-        texture_handle: std::sync::MutexGuard<'_, Option<egui::TextureHandle>>
-    ) {
-        let image_source:ImageSource<'_> = match *texture_handle {
-            Some(ref texture) => texture.into(),
-            None => "file://assets/icon-1024.png".into(),
-        };
-        let image = egui::Image::new(image_source)
-            .max_width(100.0)
-            .sense(egui::Sense {
-                click: true,
-                drag: false,
-                focusable: false,
-            });
-        
-        let image_widget = ui.add(image);
-        if image_widget.clicked() {
-            self.photos_index = index
-        }
-        image_widget.context_menu(|ui| {
-            context_menu::add_open_file_location_option(&owned_photo, ui);
-            context_menu::add_open_file_option(&owned_photo, ui);
-        });
-        ui.label(owned_photo.image_name.clone());
-    }
-
-
     fn display_thumbnail(
         &mut self, 
         ui: &mut egui::Ui, 
