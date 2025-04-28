@@ -16,3 +16,6 @@ target_wasm
 .idea/vcs.xml
 .idea/inspectionProfiles/Project_Default.xml
 assets/samples/.blitz/storage.ron
+
+
+.vscode/settings.json
