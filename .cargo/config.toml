@@ -5,5 +5,5 @@
 [target.wasm32-unknown-unknown]
 rustflags = [
     "--cfg=web_sys_unstable_apis",
-    "-C", "link-arg=--max-memory=1073741824",
+    "-C", "link-arg=--max-memory=4294967296",
 ]

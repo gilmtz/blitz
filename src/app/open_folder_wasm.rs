@@ -34,14 +34,14 @@ impl BlitzApp {
             let mut data_guard = image_files.write().unwrap();
             for file in files {
 
-                data_guard.push(Arc::new(ImageInfo{
+                data_guard.push(ImageInfo{
                     data: file.data,
                     image_name: file.name,
                     path_processed: PathBuf::new(),
                     path_raw: None,
                     rating: Rating::Unrated,
                     texture: Arc::new(Mutex::new(None)),
-                }.into()));
+                }.into());
             }
         });
     }
