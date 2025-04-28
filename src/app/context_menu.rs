@@ -1,6 +1,8 @@
 use std::sync::RwLockReadGuard;
 
-pub fn add_open_file_option(unwrapped_photo: &RwLockReadGuard<'_, super::ImageInfo>, ui: &mut egui::Ui) {
+use super::models::ImageInfo;
+
+pub fn add_open_file_option(unwrapped_photo: ImageInfo, ui: &mut egui::Ui) {
     
     #[cfg(not(target_arch = "wasm32"))]
     if ui.button("Open file location").clicked() {
@@ -15,7 +17,7 @@ pub fn add_open_file_option(unwrapped_photo: &RwLockReadGuard<'_, super::ImageIn
 
 }
 
-pub fn add_open_file_location_option(unwrapped_photo: &RwLockReadGuard<'_, super::ImageInfo>, ui: &mut egui::Ui) {
+pub fn add_open_file_location_option(unwrapped_photo: ImageInfo, ui: &mut egui::Ui) {
     #[cfg(not(target_arch = "wasm32"))]
     if ui.button("Open file").clicked() {
         let _ = open::that(unwrapped_photo.path_processed.clone());

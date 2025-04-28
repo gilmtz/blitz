@@ -178,7 +178,7 @@ impl eframe::App for BlitzApp {
 
         self.update_left_panel(ctx);
 
-        // self.update_right_panel(ctx);
+        self.update_right_panel(ctx);
 
         self.update_center_panel(ctx);
     }
@@ -566,7 +566,7 @@ mod tests {
 }
 
 mod models;
-// mod right_panel;
+mod right_panel;
 mod left_panel;
 mod center_panel;
 mod context_menu;
