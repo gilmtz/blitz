@@ -19,7 +19,7 @@ pub struct BlitzApp {
     #[serde(skip)]
     pub uv_size: f32,
     #[serde(skip)]
-    pub photos: Vec<ImageInfo>,
+    pub photos: Arc<RwLock<Vec<ImageInfo>>>,
     pub photo_dir: PathBuf,
     pub wheat_dir_target: Option<PathBuf>,
     pub chaffe_dir_target: Option<PathBuf>,
@@ -58,15 +58,17 @@ impl BlitzApp {
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
-            log!(Level::Info,"lkj;lkjsadf");
-            save_culling_progress(&self.photo_dir, &self.photos);
-
+            
+                // save_culling_progress(&self.photo_dir, photos);
+    
             #[cfg(not(target_arch = "wasm32"))]
             if let Some(path) = pick_folder() {
                 self.open_folder_action(ui, path);
             }
             #[cfg(target_arch = "wasm32")]
             let _ = self.open_folder_action();
+        
+            
         }
 
         if ui.button("Commit choices").clicked() {
@@ -94,12 +96,14 @@ impl BlitzApp {
         }
 
         if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-            self.photos[self.photos_index].rating = Rating::Remove;
-            self.photos[self.photos_index].texture = Arc::new(Mutex::new(None));
+            let photos_index = self.photos_index;
+            self.photos.write().unwrap()[photos_index].rating = Rating::Remove;
+            self.photos.write().unwrap()[photos_index].texture = Arc::new(Mutex::new(None));
             go_to_next_picture(self);
         }
         if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-            self.photos[self.photos_index].rating = Rating::Approve;
+            let photos_index = self.photos_index;
+            self.photos.write().unwrap()[photos_index].rating = Rating::Approve;
             go_to_next_picture(self);
         }
     }
@@ -116,7 +120,10 @@ impl BlitzApp {
         };
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
-        commit_culling(&self.photos,chaffe_dir,wheat_dir);
+        if let Ok(photos) = self.photos.try_read() {
+            commit_culling(&*photos,chaffe_dir,wheat_dir);
+        }   
+        
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
@@ -156,7 +163,10 @@ impl eframe::App for BlitzApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
-        save_culling_progress(&self.photo_dir, &self.photos);
+        if let Ok(photos) = self.photos.try_read() {
+            save_culling_progress(&self.photo_dir, &*photos);
+        }
+
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -166,9 +176,9 @@ impl eframe::App for BlitzApp {
 
         self.update_top_panel(ctx);
 
-        self.update_left_panel(ctx);
+        // self.update_left_panel(ctx);
 
-        self.update_right_panel(ctx);
+        // self.update_right_panel(ctx);
 
         self.update_center_panel(ctx);
     }
@@ -176,20 +186,24 @@ impl eframe::App for BlitzApp {
 
 fn go_to_next_picture(template_app: &mut BlitzApp) {
     log::info!("Go to next picture");
-    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos) {
-        Some(index) => {
-            log::info!("Moving to index: {}", index);
-            template_app.photos_index = index;
-
-        },
-        None => todo!("we rated everything so now we die"),
+    if let Ok(photos) = template_app.photos.try_read() {
+        match get_next_picture_index(template_app.photos_index.clone(), &*photos) {
+            Some(index) => {
+                log::info!("Moving to index: {}", index);
+                template_app.photos_index = index;
+    
+            },
+            None => todo!("we rated everything so now we die"),
+        }
     }
 }
 
 fn go_to_previous_picture(template_app: &mut BlitzApp) {
-    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos) {
-        Some(index) => template_app.photos_index = index,
-        None => todo!("we rated everything so now we die"),
+    if let Ok(photos) = template_app.photos.try_read() {
+        match get_previous_picture_index(template_app.photos_index.clone(), &*photos) {
+            Some(index) => template_app.photos_index = index,
+            None => todo!("we rated everything so now we die"),
+        }
     }
 }
 
@@ -552,8 +566,8 @@ mod tests {
 }
 
 mod models;
-mod right_panel;
-mod left_panel;
+// mod right_panel;
+// mod left_panel;
 mod center_panel;
 mod context_menu;
 mod menu_bar;
