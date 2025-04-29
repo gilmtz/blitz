@@ -137,7 +137,7 @@
         // We disable caching during development so that we always view the latest version.
         if ('serviceWorker' in navigator && window.location.hash !== "#dev") {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('assets/sw.js');
+                navigator.serviceWorker.register('sw.js');
             });
         }
     </script>
