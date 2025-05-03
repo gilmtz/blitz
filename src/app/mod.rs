@@ -108,6 +108,7 @@ impl BlitzApp {
         }
     }
 
+    #[allow(unused_variables)]
     fn commit_choices(&mut self, ui: &mut egui::Ui) {
         match fs::create_dir_all(&self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
             Ok(it) => it,

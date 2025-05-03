@@ -1,17 +1,11 @@
 use std::{
-    ffi::OsString,
-    fs::{self},
     path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    thread,
+    sync::{Arc, Mutex},
 };
-
-use egui::{ColorImage, TextureHandle};
-use futures::{channel::oneshot, executor::block_on};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsValue;
-use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
+use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Uint8Array}, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
 use log;
 
 use super::{BlitzApp, ImageInfo, Rating};
