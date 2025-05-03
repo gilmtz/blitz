@@ -152,8 +152,11 @@ impl BlitzApp {
         let file_obj: File = JsFuture::from(file_promise).await?.dyn_into()?;
         let file_name = file_obj.name();
 
-        if !is_valid_image_extension(&file_name){
-            return Err(JsValue::from_str(&format!("Unsupported file type: {}", file_name)));
+        if !is_valid_image_extension(&file_name) {
+            return Err(JsValue::from_str(&format!(
+                "Unsupported file type: {}",
+                file_name
+            )));
         }
 
         // 6. Read the file contents as an ArrayBuffer
@@ -179,8 +182,6 @@ impl BlitzApp {
     }
 }
 
-
-
 fn is_valid_image_extension(filename: &str) -> bool {
     if let Some(ext) = get_file_extension(filename) {
         let lower_ext = ext.to_lowercase();
@@ -188,7 +189,6 @@ fn is_valid_image_extension(filename: &str) -> bool {
     } else {
         false
     }
-    
 }
 
 fn get_file_extension(filename: &str) -> Option<String> {

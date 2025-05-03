@@ -12,17 +12,17 @@ use ron::ser::PrettyConfig;
 impl BlitzApp {
     #[allow(unused_variables)]
     pub fn commit_choices(&mut self, ui: &mut egui::Ui) {
-        match fs::create_dir_all(self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
+        match fs::create_dir_all(get_chaffe_dir(self).clone()) {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
         };
 
-        match fs::create_dir_all(self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
+        match fs::create_dir_all(get_wheat_dir(self).clone()) {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
         };
-        let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
-        let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
+        let chaffe_dir = &get_chaffe_dir(self);
+        let wheat_dir = &get_wheat_dir(self);
         if let Ok(photos) = self.photos.try_read() {
             commit_culling(&photos, chaffe_dir, wheat_dir);
         }
@@ -30,26 +30,26 @@ impl BlitzApp {
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
+}
 
-    fn get_chaffe_dir(&mut self, root_dir: &Path) -> PathBuf {
-        match &self.chaffe_dir_target {
-            Some(target_dir) => target_dir.clone(),
-            None => {
-                let mut chaffe_dir = root_dir.to_path_buf();
-                chaffe_dir.push("chaffe");
-                chaffe_dir
-            }
+fn get_chaffe_dir(template_app: &BlitzApp) -> PathBuf {
+    match &template_app.chaffe_dir_target {
+        Some(target_dir) => target_dir.clone(),
+        None => {
+            let mut chaffe_dir = template_app.photo_dir.to_path_buf();
+            chaffe_dir.push("chaffe");
+            chaffe_dir
         }
     }
+}
 
-    fn get_wheat_dir(&mut self, root_dir: &Path) -> PathBuf {
-        match &self.wheat_dir_target {
-            Some(target_dir) => target_dir.clone(),
-            None => {
-                let mut wheat_dir = root_dir.to_path_buf();
-                wheat_dir.push("wheat");
-                wheat_dir
-            }
+fn get_wheat_dir(template_app: &BlitzApp) -> PathBuf {
+    match &template_app.wheat_dir_target {
+        Some(target_dir) => target_dir.clone(),
+        None => {
+            let mut wheat_dir = template_app.photo_dir.to_path_buf();
+            wheat_dir.push("wheat");
+            wheat_dir
         }
     }
 }
