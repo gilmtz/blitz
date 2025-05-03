@@ -12,17 +12,21 @@ impl BlitzApp {
 
                 ui.add_space(10.0);
 
-                // if ui.button("Choose Wheat Dir").clicked() {
-                //     self.wheat_dir_target = rfd::FileDialog::new().pick_folder();
-                //     ui.close_menu();
-                // }
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui.button("Choose Wheat Dir").clicked() {
+                    self.wheat_dir_target = rfd::FileDialog::new().pick_folder();
+                    log::debug!("Chose {:?} as wheat directory", self.chaffe_dir_target);
+                    ui.close_menu();
+                }
 
                 ui.add_space(10.0);
 
-                // if ui.button("Choose Chaffe Dir").clicked() {
-                //     self.chaffe_dir_target = rfd::FileDialog::new().pick_folder();
-                //     ui.close_menu();
-                // }
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui.button("Choose Chaffe Dir").clicked() {
+                    self.chaffe_dir_target = rfd::FileDialog::new().pick_folder();
+                    log::debug!("Chose {:?} as chaffe directory", self.chaffe_dir_target);
+                    ui.close_menu();
+                }
             });
             ui.add_space(16.0);
         }

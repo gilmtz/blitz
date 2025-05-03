@@ -12,17 +12,19 @@ use ron::ser::PrettyConfig;
 impl BlitzApp {
     #[allow(unused_variables)]
     pub fn commit_choices(&mut self, ui: &mut egui::Ui) {
-        match fs::create_dir_all(get_chaffe_dir(self).clone()) {
-            Ok(it) => it,
+        let chaffe_dir = &get_chaffe_dir(self);
+        let wheat_dir = &get_wheat_dir(self);
+
+        match fs::create_dir_all(chaffe_dir.clone()) {
+            Ok(it) => log::debug!("Created {:?} as chaffe_dir", chaffe_dir.as_os_str()),
             Err(_err) => todo!("handle when we can't make directories later"),
         };
 
-        match fs::create_dir_all(get_wheat_dir(self).clone()) {
-            Ok(it) => it,
+        match fs::create_dir_all(wheat_dir.clone()) {
+            Ok(it) => log::debug!("Created {:?} as wheat_dir", wheat_dir.as_os_str()),
             Err(_err) => todo!("handle when we can't make directories later"),
         };
-        let chaffe_dir = &get_chaffe_dir(self);
-        let wheat_dir = &get_wheat_dir(self);
+
         if let Ok(photos) = self.photos.try_read() {
             commit_culling(&photos, chaffe_dir, wheat_dir);
         }

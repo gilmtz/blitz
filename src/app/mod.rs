@@ -19,7 +19,9 @@ pub struct BlitzApp {
     #[serde(skip)]
     pub photos: Arc<RwLock<Vec<ImageInfo>>>,
     pub photo_dir: PathBuf,
+    #[serde(skip)]
     pub wheat_dir_target: Option<PathBuf>,
+    #[serde(skip)]
     pub chaffe_dir_target: Option<PathBuf>,
     pub max_texture_count: usize,
 }
