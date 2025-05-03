@@ -1,7 +1,5 @@
 use std::{
-    fs::{self},
-    io::{self},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, Mutex, RwLock},
 };
 
@@ -9,7 +7,6 @@ use egui::Key;
 use file_operations::save_culling_progress;
 use log::{log, Level};
 use models::{ImageInfo, Rating};
-use ron::ser::PrettyConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]

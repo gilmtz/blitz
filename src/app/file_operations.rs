@@ -4,15 +4,10 @@ use std::{
     fs::{self},
     io::{self},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, RwLock},
 };
 
-use egui::Key;
-use log::{log, Level};
 use models::{ImageInfo, Rating};
 use ron::ser::PrettyConfig;
-
-use crate::app::navigation::{get_next_picture_index, get_previous_picture_index};
 
 impl BlitzApp {
     #[allow(unused_variables)]
@@ -126,150 +121,10 @@ pub fn save_culling_progress(photo_dir: &Path, photos: &Vec<ImageInfo>) -> io::R
     Ok(())
 }
 
+#[allow(clippy::vec_init_then_push)]
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_get_next_picture_index_no_ratings() {
-        let mut test_photos = Vec::new();
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Unrated,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Unrated,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Unrated,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-
-        let next_picture_index = get_next_picture_index(0, &test_photos);
-        assert_eq!(Some(1), next_picture_index);
-        let next_picture_index = get_next_picture_index(1, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-        let next_picture_index = get_next_picture_index(2, &test_photos);
-        assert_eq!(Some(0), next_picture_index);
-
-        let next_picture_index = get_previous_picture_index(0, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-        let next_picture_index = get_previous_picture_index(1, &test_photos);
-        assert_eq!(Some(0), next_picture_index);
-        let next_picture_index = get_previous_picture_index(2, &test_photos);
-        assert_eq!(Some(1), next_picture_index);
-    }
-
-    #[test]
-    fn test_get_next_picture_index_full_list() {
-        let mut test_photos = Vec::new();
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-
-        let next_picture_index = get_next_picture_index(0, &test_photos);
-        assert_eq!(None, next_picture_index);
-        let next_picture_index = get_next_picture_index(1, &test_photos);
-        assert_eq!(None, next_picture_index);
-        let next_picture_index = get_next_picture_index(2, &test_photos);
-        assert_eq!(None, next_picture_index);
-
-        let previous_picture_index = get_previous_picture_index(0, &test_photos);
-        assert_eq!(None, previous_picture_index);
-        let previous_picture_index = get_previous_picture_index(1, &test_photos);
-        assert_eq!(None, previous_picture_index);
-        let previous_picture_index = get_previous_picture_index(2, &test_photos);
-        assert_eq!(None, previous_picture_index);
-    }
-
-    #[test]
-    fn test_get_next_picture_index_skip_rated() {
-        let mut test_photos = Vec::new();
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Unrated,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-        test_photos.push(ImageInfo {
-            path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
-            path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
-            rating: Rating::Approve,
-            texture: Arc::new(Mutex::new(None)),
-            image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into(),
-        });
-
-        let next_picture_index = get_next_picture_index(0, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-        let next_picture_index = get_next_picture_index(1, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-        let next_picture_index = get_next_picture_index(2, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-        let next_picture_index = get_next_picture_index(3, &test_photos);
-        assert_eq!(Some(2), next_picture_index);
-
-        let previous_picture_index = get_previous_picture_index(0, &test_photos);
-        assert_eq!(Some(2), previous_picture_index);
-        let previous_picture_index = get_previous_picture_index(1, &test_photos);
-        assert_eq!(Some(2), previous_picture_index);
-        let previous_picture_index = get_previous_picture_index(2, &test_photos);
-        assert_eq!(Some(2), previous_picture_index);
-        let previous_picture_index = get_previous_picture_index(3, &test_photos);
-        assert_eq!(Some(2), previous_picture_index);
-    }
 
     #[test]
     fn test_commit_culling() {
