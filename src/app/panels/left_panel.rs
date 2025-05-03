@@ -1,3 +1,4 @@
+use crate::app::context_menu;
 use crate::app::models::{ImageInfo, Rating};
 use crate::BlitzApp;
 use egui::ImageSource;
@@ -20,8 +21,7 @@ impl BlitzApp {
 }
 
 fn render_photo_item(photo: &ImageInfo, ui: &mut egui::Ui, index: usize, photos_index: &mut usize) {
-    let owned_photo = photo;
-    match owned_photo.rating {
+    match photo.rating {
         Rating::Unrated => render_unrated_photo(photo, ui, index, photos_index),
         Rating::Approve => {}
         Rating::Remove => {}
@@ -69,9 +69,10 @@ fn display_thumbnail(
         if image_widget.clicked() {
             *app_photo_index = index
         }
+        #[cfg(not(target_arch = "wasm32"))]
         image_widget.context_menu(|_ui| {
-            // context_menu::add_open_file_location_option(photo, ui);
-            // context_menu::add_open_file_option(&owned_photo, ui);
+            context_menu::add_open_file_location_option(&photo, ui);
+            context_menu::add_open_file_option(&photo, ui);
         });
         ui.label(photo.image_name.clone());
     };

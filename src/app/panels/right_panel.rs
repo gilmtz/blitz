@@ -44,8 +44,8 @@ fn handle_approve_image(photo: &ImageInfo, ui: &mut egui::Ui) {
         };
         let image_widget = ui.add(image);
         image_widget.context_menu(|ui| {
-            context_menu::add_open_file_location_option(photo.clone(), ui);
-            context_menu::add_open_file_option(photo.clone(), ui);
+            context_menu::add_open_file_location_option(&photo, ui);
+            context_menu::add_open_file_option(&photo, ui);
         });
 
         ui.label(photo.image_name.clone());
