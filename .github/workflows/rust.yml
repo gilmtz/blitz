@@ -37,6 +37,8 @@ jobs:
 
   check_wasm:
     name: Check wasm32
+    env:
+          RUSTFLAGS: "--cfg=web_sys_unstable_apis"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
