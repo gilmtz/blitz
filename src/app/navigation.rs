@@ -108,6 +108,7 @@ pub fn get_previous_picture_index(starting_index: usize, photos: &[ImageInfo]) -
 }
 
 #[cfg(test)]
+#[allow(clippy::vec_init_then_push)]
 mod tests {
     use super::*;
 
