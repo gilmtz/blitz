@@ -3,10 +3,11 @@ use std::{
     io::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
-    thread,
 };
 
 use egui::Key;
+use log::{log, Level};
+use models::{ImageInfo, Rating};
 use ron::ser::PrettyConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -14,31 +15,17 @@ use ron::ser::PrettyConfig;
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct BlitzApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
-    photos_index: usize,
+    pub photos_index: usize,
     #[serde(skip)]
-    uv_size: f32,
+    pub uv_size: f32,
     #[serde(skip)]
-    photos: Vec<Arc<RwLock<ImageInfo>>>,
-
-    photo_dir: PathBuf,
-    wheat_dir_target: Option<PathBuf>,
-    chaffe_dir_target: Option<PathBuf>,
-    max_texture_count: usize,
+    pub photos: Arc<RwLock<Vec<ImageInfo>>>,
+    pub photo_dir: PathBuf,
+    pub wheat_dir_target: Option<PathBuf>,
+    pub chaffe_dir_target: Option<PathBuf>,
+    pub max_texture_count: usize,
 }
 
-impl Default for BlitzApp {
-    fn default() -> Self {
-        Self {
-            photos_index: 0,
-            photos: Vec::new().into(),
-            photo_dir: PathBuf::new(),
-            max_texture_count: 200,
-            uv_size: 1.0,
-            wheat_dir_target: None,
-            chaffe_dir_target: None,
-        }
-    }
-}
 
 impl BlitzApp {
     /// Called once before the first frame.
@@ -48,6 +35,7 @@ impl BlitzApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
+
 
         if let Some(storage) = cc.storage {
             let persisted_state: BlitzApp =
@@ -70,27 +58,36 @@ impl BlitzApp {
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
-            save_culling_progress(&self.photo_dir, &self.photos);
+            
+                // save_culling_progress(&self.photo_dir, photos);
+    
+            #[cfg(not(target_arch = "wasm32"))]
             if let Some(path) = pick_folder() {
                 self.open_folder_action(ui, path);
             }
+            #[cfg(target_arch = "wasm32")]
+            let _ = self.open_folder_action();
+        
+            
         }
 
         if ui.button("Commit choices").clicked() {
             self.commit_choices(ui);
         }
 
-        if ui.button("Load next textures").clicked() {
-            let mut photos = (&self.photos).to_owned();
-            let max_texture_count = (&self.max_texture_count).to_owned();
-            let thread_ctx = ui.ctx().clone();
+        // #[cfg(not(target_arch = "wasm32"))]
+        // if ui.button("Load next textures").clicked() {
+        //     let mut photos = (&self.photos).to_owned();
+        //     let max_texture_count = (&self.max_texture_count).to_owned();
+        //     let thread_ctx = ui.ctx().clone();
 
-            let _handler = thread::spawn(move || {
-                open_folder::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
-            });
-        }
+        //     let _handler = thread::spawn(move || {
+        //         open_folder_native::load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+        //     });
+        // }
 
         if ctx.input(|i| i.key_pressed(Key::D)) {
+            log!(Level::Info, "D pressed");
             go_to_next_picture(self);
         }
 
@@ -99,12 +96,14 @@ impl BlitzApp {
         }
 
         if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-            self.photos[self.photos_index].write().unwrap().rating = Rating::Remove;
-            self.photos[self.photos_index].write().unwrap().texture = Arc::new(Mutex::new(None));
+            let photos_index = self.photos_index;
+            self.photos.write().unwrap()[photos_index].rating = Rating::Remove;
+            self.photos.write().unwrap()[photos_index].texture = Arc::new(Mutex::new(None));
             go_to_next_picture(self);
         }
         if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-            self.photos[self.photos_index].write().unwrap().rating = Rating::Approve;
+            let photos_index = self.photos_index;
+            self.photos.write().unwrap()[photos_index].rating = Rating::Approve;
             go_to_next_picture(self);
         }
     }
@@ -121,7 +120,11 @@ impl BlitzApp {
         };
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
-        commit_culling(&self.photos,chaffe_dir,wheat_dir);
+        if let Ok(photos) = self.photos.try_read() {
+            commit_culling(&*photos,chaffe_dir,wheat_dir);
+        }   
+        
+        #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
     
@@ -155,31 +158,15 @@ fn pick_folder() -> Option<PathBuf> {
     rfd::FileDialog::new().pick_folder()
 }
 
-#[cfg(target_arch = "wasm32")]
-fn pick_folder() -> Option<PathBuf> {
-    let task = rfd::AsyncFileDialog::new().pick_file();
-    execute(async move {
-        let file = task.await;
-        if let Some(file) = file {
-            let mut path =  file.path().to_path_buf();
-            path.pop();
-            return Some(path);
-        }
-    });
-    None
-}
-
-#[cfg(target_arch = "wasm32")]
-fn execute<F: Future<Output = ()> + 'static>(f: F) {
-    wasm_bindgen_futures::spawn_local(f);
-}
-
 impl eframe::App for BlitzApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
-        save_culling_progress(&self.photo_dir, &self.photos);
+        if let Ok(photos) = self.photos.try_read() {
+            save_culling_progress(&self.photo_dir, &*photos);
+        }
+
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -198,38 +185,30 @@ impl eframe::App for BlitzApp {
 }
 
 fn go_to_next_picture(template_app: &mut BlitzApp) {
-    match get_next_picture_index(template_app.photos_index.clone(), &template_app.photos) {
-        Some(index) => template_app.photos_index = index,
-        None => todo!("we rated everything so now we die"),
+    log::info!("Go to next picture");
+    if let Ok(photos) = template_app.photos.try_read() {
+        match get_next_picture_index(template_app.photos_index.clone(), &*photos) {
+            Some(index) => {
+                log::info!("Moving to index: {}", index);
+                template_app.photos_index = index;
+    
+            },
+            None => todo!("we rated everything so now we die"),
+        }
     }
 }
 
 fn go_to_previous_picture(template_app: &mut BlitzApp) {
-    match get_previous_picture_index(template_app.photos_index.clone(), &template_app.photos) {
-        Some(index) => template_app.photos_index = index,
-        None => todo!("we rated everything so now we die"),
+    if let Ok(photos) = template_app.photos.try_read() {
+        match get_previous_picture_index(template_app.photos_index.clone(), &*photos) {
+            Some(index) => template_app.photos_index = index,
+            None => todo!("we rated everything so now we die"),
+        }
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
-pub struct ImageInfo {
-    path_processed: PathBuf,
-    path_raw: Option<PathBuf>,
-    rating: Rating,
-    #[serde(skip)]
-    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
-    image_name: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
-enum Rating {
-    Unrated,
-    Approve,
-    Remove,
-}
-
 fn commit_culling(
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
     chaffe_dir: &PathBuf,
     wheat_dir: &PathBuf,
 ) -> Vec<Result<(), io::Error>> {
@@ -240,14 +219,14 @@ fn commit_culling(
     return committing_results;
 }
 
-fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &Arc<RwLock<ImageInfo>>) {
-    match image.read().unwrap().rating {
+fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &ImageInfo) {
+    match image.rating {
         Rating::Unrated => {}
         Rating::Approve => {
-            committing_results.push(move_image_into_dir(&wheat_dir, &image.read().unwrap()));
+            committing_results.push(move_image_into_dir(&wheat_dir, &image));
         }
         Rating::Remove => {
-            committing_results.push(move_image_into_dir(&chaffe_dir, &image.read().unwrap()));
+            committing_results.push(move_image_into_dir(&chaffe_dir, &image));
         }
     }
 }
@@ -269,10 +248,10 @@ fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>>>) {
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Result<()>  {
     // This handles the initial opening case
-    if photos.len() < 1 {
-        return;
+    if photos.is_empty() {
+        return Ok(());
     }
     let mut blitz_dir = photo_dir.clone();
     blitz_dir.push(".blitz");
@@ -284,28 +263,27 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<Arc<RwLock<ImageInfo>
 
     blitz_dir.push("storage.ron");
 
-    let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new());
-    match ron_str {
-        Ok(serialized_ron) => {
-            let _ = fs::write(blitz_dir, serialized_ron);
-        }
-        Err(_) => {
-            todo!("serializing didn't work")
-        }
-    }
+    // Serialize and write
+    let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    
+    fs::write(blitz_dir, ron_str)?;
+
+    Ok(())
 }
 
 fn get_next_picture_index(
     starting_index: usize,
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
 ) -> Option<usize> {
+    log::info!("Get next picture index");
     let mut candidate_index = starting_index.clone();
     loop {
         candidate_index += 1;
         if candidate_index >= photos.len() {
             candidate_index = 0
         }
-        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
+        if photos[candidate_index].rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
@@ -316,7 +294,7 @@ fn get_next_picture_index(
 
 fn get_previous_picture_index(
     starting_index: usize,
-    photos: &Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &Vec<ImageInfo>,
 ) -> Option<usize> {
     let mut candidate_index = starting_index.clone();
     loop {
@@ -325,7 +303,7 @@ fn get_previous_picture_index(
         } else {
             candidate_index = candidate_index - 1;
         }
-        if photos[candidate_index].read().unwrap().rating == Rating::Unrated {
+        if photos[candidate_index].rating == Rating::Unrated {
             return Some(candidate_index);
         }
         if starting_index == candidate_index {
@@ -341,27 +319,32 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_no_ratings() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into()
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
+            data: [].into(),
+
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(Some(1), next_picture_index);
@@ -381,27 +364,30 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_full_list() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
+            data: [].into(),
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(None, next_picture_index);
@@ -421,34 +407,38 @@ mod tests {
     #[test]
     fn test_get_next_picture_index_skip_rated() {
         let mut test_photos = Vec::new();
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(),
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
             path_raw: Some(PathBuf::from("/tmp/DSC55555.jpg")),
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-        })));
+            data: [].into(),
+        });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
         assert_eq!(Some(2), next_picture_index);
@@ -478,27 +468,30 @@ mod tests {
 
         let mut test_photos = Vec::new();
 
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/1.jpg"),
             path_raw: None,
             rating: Rating::Remove,
             texture: Arc::new(Mutex::new(None)),
             image_name: "1.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(), // Added field
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/2.jpg"),
             path_raw: None,
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "2.jpg".to_string(),
-        })));
-        test_photos.push(Arc::new(RwLock::new(ImageInfo {
+            data: [].into(), // Added field
+        });
+        test_photos.push(ImageInfo {
             path_processed: PathBuf::from("tmp/3.jpg"),
             path_raw: None,
             rating: Rating::Approve,
             texture: Arc::new(Mutex::new(None)),
             image_name: "3.jpg".to_string(),
-        })));
+            data: [].into(), // Added field
+        });
 
         let temp_path = PathBuf::from("tmp");
         let chaffe_path = PathBuf::from("tmp/chaffe");
@@ -572,10 +565,13 @@ mod tests {
     }
 }
 
-
+mod models;
 mod right_panel;
 mod left_panel;
 mod center_panel;
-mod open_folder;
 mod context_menu;
 mod menu_bar;
+#[cfg(not(target_arch = "wasm32"))]
+mod open_folder_native;
+#[cfg(target_arch = "wasm32")]
+mod open_folder_wasm;

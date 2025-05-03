@@ -3,57 +3,86 @@ use std::{
     fs::{self},
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
-    thread,
 };
 
 use egui::{ColorImage, TextureHandle};
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::JsFuture;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
+#[cfg(target_arch = "wasm32")]
+use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
+
 use super::{BlitzApp, ImageInfo, Rating};
 
 impl BlitzApp {
+    // open folder handles initialization of the app and the loading of the images
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn open_folder_action(&mut self, ui: &mut egui::Ui, path: PathBuf) {
         self.photo_dir = path.clone();
 
-        // Restore state from .blitz folder
-        let mut blitz_dir = self.photo_dir.clone();
-        blitz_dir.push(".blitz");
-        blitz_dir.push("storage.ron");
+        // // Restore state from .blitz folder
+        // let mut blitz_dir = self.photo_dir.clone();
+        // blitz_dir.push(".blitz");
+        // blitz_dir.push("storage.ron");
 
-        match fs::read(blitz_dir.clone()) {
-            Ok(seralized_ron) => {
-                self.photos = Vec::new().into();
-                match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
-                    Ok(stored_state) => {
-                        let stored_images = stored_state.clone();
-                        init_photos_state(
-                            self.photo_dir.clone(),
-                            &mut self.photos,
-                            Some(stored_images),
-                        );
-                    }
-                    Err(_) => todo!("failed to deserialized the previous state"),
-                }
-            }
-            Err(_) => {
-                init_photos_state(self.photo_dir.clone(), &mut self.photos, None);
-            }
+        // match fs::read(blitz_dir.clone()) {
+        //     Ok(seralized_ron) => {
+        //         self.photos = Arc::new(Vec::new().into());
+        //         match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
+        //             Ok(stored_state) => {
+        //                 let stored_images = stored_state.clone();
+        //                 init_photos_state(
+        //                     self.photo_dir.clone(),
+        //                     &mut self.photos,
+        //                     Some(stored_images),
+        //                 );
+                        
+        //             }
+        //             Err(_) => todo!("failed to deserialized the previous state"),
+        //         }
+        //     }
+        //     Err(_) => {
+        //         init_photos_state(
+        //             self.photo_dir.clone(),
+        //             &mut self.photos,
+        //             None,
+        //         );
+        //     }
+        // }
+
+        if let Ok(mut photos) = self.photos.try_write() {
+            init_photos_state(
+                self.photo_dir.clone(),
+                &mut *photos,
+                None,
+            );
         }
+        
 
-        self.photos_index = get_first_unrated_image_index(&self.photos);
+        // self.photos_index = get_first_unrated_image_index(&self.photos);
+        self.photos_index = 0;
 
         let mut photos = (&self.photos).to_owned();
         let max_texture_count = (&self.max_texture_count).to_owned();
         let thread_ctx = ui.ctx().clone();
 
-        let _handler = thread::spawn(move || {
-            load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
-        });
+        // let _handler = thread::spawn(move || {
+        //     if let Ok(photos) = photos.try_write() {
+        //         load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
+        //     }
+            
+        // });
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn init_photos_state(
     photo_dir: PathBuf,
-    photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
+    photos: &mut Vec<ImageInfo>,
     stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>,
 ) {
     let paths = fs::read_dir(photo_dir.clone()).unwrap();
@@ -102,7 +131,7 @@ pub fn load_all_textures_into_memory(
 fn init_image_info(
     dir_entry: fs::DirEntry,
     stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
-) -> Option<Arc<RwLock<ImageInfo>>> {
+) -> Option<ImageInfo> {
     let entry_path = dir_entry.path();
     let file_extension = match entry_path.extension() {
         Some(extension) => extension.to_owned(),
@@ -115,6 +144,10 @@ fn init_image_info(
         return None;
     }
     let filename = dir_entry.path().file_name().unwrap().to_str().unwrap().to_string();
+    let data: Arc<[u8]> = match fs::read(dir_entry.path().clone()) {
+        Ok(result) => result.into(),
+        Err(_) => return None, // If we can't read the image we just skip it
+    };
 
     let image_info = ImageInfo {
         path_processed: dir_entry.path().clone(),
@@ -122,8 +155,9 @@ fn init_image_info(
         rating: get_rating_for_image(stored_photos, dir_entry.path().clone()),
         texture: Arc::new(Mutex::new(None)),
         image_name: filename,
+        data: data,
     };
-    Some(Arc::new(RwLock::new(image_info)))
+    Some(image_info)
 }
 
 fn load_texture_into_memory(
