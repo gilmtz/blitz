@@ -30,41 +30,27 @@ impl BlitzApp {
         self.photo_dir = path.clone();
 
         // // Restore state from .blitz folder
-        // let mut blitz_dir = self.photo_dir.clone();
-        // blitz_dir.push(".blitz");
-        // blitz_dir.push("storage.ron");
+        let mut blitz_dir = self.photo_dir.clone();
+        blitz_dir.push(".blitz");
+        blitz_dir.push("storage.ron");
 
-        // match fs::read(blitz_dir.clone()) {
-        //     Ok(seralized_ron) => {
-        //         self.photos = Arc::new(Vec::new().into());
-        //         match &ron::de::from_bytes::<Vec<Arc<RwLock<ImageInfo>>>>(&seralized_ron) {
-        //             Ok(stored_state) => {
-        //                 let stored_images = stored_state.clone();
-        //                 init_photos_state(
-        //                     self.photo_dir.clone(),
-        //                     &mut self.photos,
-        //                     Some(stored_images),
-        //                 );
-
-        //             }
-        //             Err(_) => todo!("failed to deserialized the previous state"),
-        //         }
-        //     }
-        //     Err(_) => {
-        //         init_photos_state(
-        //             self.photo_dir.clone(),
-        //             &mut self.photos,
-        //             None,
-        //         );
-        //     }
-        // }
-
-        if let Ok(mut photos) = self.photos.try_write() {
-            init_photos_state(self.photo_dir.clone(), &mut photos, None);
+        match fs::read(blitz_dir.clone()) {
+            Ok(seralized_ron) => match ron::de::from_bytes::<Vec<ImageInfo>>(&seralized_ron) {
+                Ok(stored_state) => {
+                    let mut photos: Vec<ImageInfo> = Vec::new();
+                    init_photos_state(&(self.photo_dir), &mut photos, Some(stored_state));
+                    self.photos_index = get_first_unrated_image_index(&photos);
+                    self.photos = Arc::new(photos.into());
+                }
+                Err(_) => todo!("failed to deserialized the previous state"),
+            },
+            Err(_) => {
+                if let Ok(mut photos) = self.photos.try_write() {
+                    self.photos_index = 0;
+                    init_photos_state(&(self.photo_dir), &mut photos, None);
+                }
+            }
         }
-
-        // self.photos_index = get_first_unrated_image_index(&self.photos);
-        self.photos_index = 0;
 
         let _photos = self.photos.to_owned();
         let _max_texture_count = self.max_texture_count.to_owned();
@@ -81,11 +67,11 @@ impl BlitzApp {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn init_photos_state(
-    photo_dir: PathBuf,
+    photo_dir: &Path,
     photos: &mut Vec<ImageInfo>,
-    stored_photos: Option<Vec<Arc<RwLock<ImageInfo>>>>,
+    stored_photos: Option<Vec<ImageInfo>>,
 ) {
-    let paths = fs::read_dir(photo_dir.clone()).unwrap();
+    let paths = fs::read_dir(photo_dir).unwrap();
     for path in paths {
         let x = path.unwrap();
         match x.path().is_file() {
@@ -99,14 +85,27 @@ fn init_photos_state(
     }
 }
 
-fn _get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
-    let mut counter: usize = 0;
-    for image_lock in photos {
-        let image = image_lock.read().unwrap().clone();
-        if image.rating == Rating::Unrated {
-            return counter;
+fn get_first_unrated_image_index(photos: &[ImageInfo]) -> usize {
+    if number_of_unrated_images(photos) > 0 {
+        let mut counter: usize = 0;
+        for image in photos {
+            if image.rating == Rating::Unrated {
+                return counter;
+            }
+            counter += 1;
         }
-        counter += 1;
+        counter
+    } else {
+        0
+    }
+}
+
+fn number_of_unrated_images(photos: &[ImageInfo]) -> usize {
+    let mut counter: usize = 0;
+    for image in photos {
+        if image.rating == Rating::Unrated {
+            counter += 1;
+        }
     }
     counter
 }
@@ -130,13 +129,13 @@ pub fn load_all_textures_into_memory(
 
 fn init_image_info(
     dir_entry: fs::DirEntry,
-    stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
+    stored_photos: &Option<Vec<ImageInfo>>,
 ) -> Option<ImageInfo> {
     let entry_path = dir_entry.path();
     let file_extension = match entry_path.extension() {
         Some(extension) => extension.to_owned(),
         None => {
-            println!("Couldn't get extension for {:?}", entry_path);
+            log::debug!("Couldn't get extension for {:?}", entry_path);
             return None;
         }
     };
@@ -155,10 +154,18 @@ fn init_image_info(
         Err(_) => return None, // If we can't read the image we just skip it
     };
 
+    let image_rating = get_rating_for_image(stored_photos, dir_entry.path().clone());
+
+    log::info!(
+        "Found match for {:?}. Rating: {:?}",
+        dir_entry.path().clone(),
+        image_rating
+    );
+
     let image_info = ImageInfo {
         path_processed: dir_entry.path().clone(),
         path_raw: get_raw_variant(&dir_entry.path()),
-        rating: get_rating_for_image(stored_photos, dir_entry.path().clone()),
+        rating: image_rating,
         texture: Arc::new(Mutex::new(None)),
         image_name: filename,
         data,
@@ -214,16 +221,17 @@ fn get_raw_variant(processed_path: &Path) -> Option<PathBuf> {
     }
 }
 
-fn get_rating_for_image(
-    stored_photos: &Option<Vec<Arc<RwLock<ImageInfo>>>>,
-    image_path: PathBuf,
-) -> Rating {
+fn get_rating_for_image(stored_photos: &Option<Vec<ImageInfo>>, image_path: PathBuf) -> Rating {
     match stored_photos {
         Some(photos) => {
-            for image_lock in photos {
-                let image = image_lock.read().unwrap().clone();
+            for image in photos {
                 if image.path_processed == image_path {
-                    return image.rating;
+                    log::debug!(
+                        "Found match for {:?}. Rating: {:?}",
+                        image.path_processed,
+                        image.rating.clone()
+                    );
+                    return image.rating.clone();
                 }
             }
             Rating::Unrated
