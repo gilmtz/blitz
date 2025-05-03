@@ -150,6 +150,11 @@ impl BlitzApp {
         // 5. Get the File object from the handle
         let file_promise = file_handle.get_file(); // Returns Promise<File>
         let file_obj: File = JsFuture::from(file_promise).await?.dyn_into()?;
+        let file_name = file_obj.name();
+
+        if !is_valid_image_extension(&file_name){
+            return Err(JsValue::from_str(&format!("Unsupported file type: {}", file_name)));
+        }
 
         // 6. Read the file contents as an ArrayBuffer
         let buffer_promise = file_obj.array_buffer(); // Returns Promise<ArrayBuffer>
@@ -171,6 +176,40 @@ impl BlitzApp {
             name: file_handle.name(),
             data: bytes,
         })
+    }
+}
+
+
+
+fn is_valid_image_extension(filename: &str) -> bool {
+    if let Some(ext) = get_file_extension(filename) {
+        let lower_ext = ext.to_lowercase();
+        lower_ext == "jpg" || lower_ext == "png"
+    } else {
+        false
+    }
+    
+}
+
+fn get_file_extension(filename: &str) -> Option<String> {
+    // Use the `rfind` method to find the last occurrence of '.' in the filename.
+    let dot_index = filename.rfind('.');
+
+    // Check if a '.' was found.
+    match dot_index {
+        Some(index) => {
+            // Extract the substring after the last '.' (the extension).
+            let extension = &filename[index + 1..];
+            if extension.is_empty() {
+                return None; // Handle the case where there's a dot but no extension.
+            }
+            // Return the extension as a String wrapped in Some.
+            Some(extension.to_string())
+        }
+        None => {
+            // If no '.' was found, there's no extension, so return None.
+            None
+        }
     }
 }
 

@@ -6,7 +6,7 @@ impl BlitzApp {
             // save_culling_progress(&self.photo_dir, photos);
 
             #[cfg(not(target_arch = "wasm32"))]
-            if let Some(path) = pick_folder() {
+            if let Some(path) = rfd::FileDialog::new().pick_folder() {
                 self.open_folder_action(ui, path);
             }
             #[cfg(target_arch = "wasm32")]

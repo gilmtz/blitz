@@ -43,11 +43,6 @@ impl BlitzApp {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn pick_folder() -> Option<PathBuf> {
-    rfd::FileDialog::new().pick_folder()
-}
-
 impl eframe::App for BlitzApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
