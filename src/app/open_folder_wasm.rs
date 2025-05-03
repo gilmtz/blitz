@@ -1,18 +1,15 @@
-use std::{
-    ffi::OsString,
-    fs::{self},
-    path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    thread,
-};
-
-use egui::{ColorImage, TextureHandle};
-use futures::{channel::oneshot, executor::block_on};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen::JsValue;
-use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
 use log;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{
+    js_sys::{self, ArrayBuffer, AsyncIterator, Uint8Array},
+    File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind,
+};
 
 use super::{BlitzApp, ImageInfo, Rating};
 
@@ -20,7 +17,6 @@ pub struct ImageFile {
     pub data: Arc<[u8]>,
     pub name: String,
 }
-
 
 #[cfg(target_arch = "wasm32")]
 impl BlitzApp {
@@ -33,15 +29,17 @@ impl BlitzApp {
             });
             let mut data_guard = image_files.write().unwrap();
             for file in files {
-
-                data_guard.push(ImageInfo{
-                    data: file.data,
-                    image_name: file.name,
-                    path_processed: PathBuf::new(),
-                    path_raw: None,
-                    rating: Rating::Unrated,
-                    texture: Arc::new(Mutex::new(None)),
-                }.into());
+                data_guard.push(
+                    ImageInfo {
+                        data: file.data,
+                        image_name: file.name,
+                        path_processed: PathBuf::new(),
+                        path_raw: None,
+                        rating: Rating::Unrated,
+                        texture: Arc::new(Mutex::new(None)),
+                    }
+                    .into(),
+                );
             }
         });
     }
@@ -54,40 +52,46 @@ impl BlitzApp {
         })?;
         log::info!("showDirectoryPicker called, awaiting promise...");
         let result_value = JsFuture::from(promise).await?;
-        let handle = result_value.dyn_into::<FileSystemDirectoryHandle>().map_err(|e| {
-            log::error!("Failed to cast promise result to DirectoryHandle: {:?}", e);
-            e
-        })?;
+        let handle = result_value
+            .dyn_into::<FileSystemDirectoryHandle>()
+            .map_err(|e| {
+                log::error!("Failed to cast promise result to DirectoryHandle: {:?}", e);
+                e
+            })?;
         log::info!("Got directory handle!");
         let photos = Self::process_directory(handle).await?;
         log::info!("Processed {} files", photos.len());
         Ok(photos)
     }
 
-    pub async fn process_directory(dir_handle: FileSystemDirectoryHandle) -> Result<Vec<ImageFile>, JsValue> {
+    pub async fn process_directory(
+        dir_handle: FileSystemDirectoryHandle,
+    ) -> Result<Vec<ImageFile>, JsValue> {
         log::debug!("Processing directory: {}", dir_handle.name());
 
         // 1. Get the asynchronous iterator for the directory entries (values)
         //    values() gives FileSystemHandle instances
         let iterator: AsyncIterator = dir_handle.values();
         let mut photos: Vec<ImageFile> = Vec::new();
-    
+
         loop {
             // 2. Get the next item from the iterator
             //    We need to manually drive the async iterator using its next() method
             let next_promise = iterator.next()?; // Returns a Promise<IteratorResult>
             let next_result = JsFuture::from(next_promise).await?; // Await the promise
-    
+
             // Check if the iterator is done
-            let is_done = js_sys::Reflect::get(&next_result, &"done".into())?.as_bool().unwrap_or(true);
+            let is_done = js_sys::Reflect::get(&next_result, &"done".into())?
+                .as_bool()
+                .unwrap_or(true);
             if is_done {
                 break; // Exit loop when done
             }
-    
+
             // Get the value (FileSystemHandle)
             let value = js_sys::Reflect::get(&next_result, &"value".into())?;
             let handle: FileSystemHandle = value.dyn_into()?;
-    
+
             // 3. Check the kind (file or directory)
             match handle.kind() {
                 FileSystemHandleKind::File => {
@@ -107,7 +111,6 @@ impl BlitzApp {
                                 Err(e) => {
                                     log::error!("Error processing file: {:?}", e);
                                 }
-                                
                             }
                         }
                         Err(e) => {
@@ -117,7 +120,7 @@ impl BlitzApp {
                 }
                 FileSystemHandleKind::Directory => {
                     // It's a directory, cast to FileSystemDirectoryHandle
-                     match handle.dyn_into::<FileSystemDirectoryHandle>() {
+                    match handle.dyn_into::<FileSystemDirectoryHandle>() {
                         Ok(sub_dir_handle) => {
                             log::debug!("Found subdirectory: {}", sub_dir_handle.name());
                             // --- Optional: Recurse into subdirectory ---
@@ -126,9 +129,9 @@ impl BlitzApp {
                             // }
                         }
                         Err(e) => {
-                           log::error!("Error casting to FileSystemDirectoryHandle: {:?}", e);
+                            log::error!("Error casting to FileSystemDirectoryHandle: {:?}", e);
                         }
-                     }
+                    }
                 }
                 _ => {
                     // Handle potential other kinds if the API evolves
@@ -136,37 +139,40 @@ impl BlitzApp {
                 }
             }
         }
-    
+
         log::debug!("Finished processing directory: {}", dir_handle.name());
-        Ok(photos)   
+        Ok(photos)
     }
 
     async fn process_file(file_handle: FileSystemFileHandle) -> Result<ImageFile, JsValue> {
         log::debug!("Processing file: {}", file_handle.name());
-    
+
         // 5. Get the File object from the handle
         let file_promise = file_handle.get_file(); // Returns Promise<File>
         let file_obj: File = JsFuture::from(file_promise).await?.dyn_into()?;
-    
+
         // 6. Read the file contents as an ArrayBuffer
         let buffer_promise = file_obj.array_buffer(); // Returns Promise<ArrayBuffer>
         let array_buffer: ArrayBuffer = JsFuture::from(buffer_promise).await?.dyn_into()?;
-    
+
         // 7. Convert ArrayBuffer to Rust bytes (Vec<u8>)
         //    Create a Uint8Array view onto the ArrayBuffer
         let byte_array = Uint8Array::new(&array_buffer);
         //    Copy the data into a Rust Vec<u8>
         let bytes: Arc<[u8]> = Arc::from(byte_array.to_vec());
-    
-        log::debug!("Read {} bytes from file: {}", bytes.len(), file_handle.name());
-    
+
+        log::debug!(
+            "Read {} bytes from file: {}",
+            bytes.len(),
+            file_handle.name()
+        );
+
         Ok(ImageFile {
             name: file_handle.name(),
             data: bytes,
         })
     }
 }
-
 
 #[cfg(test)]
 mod tests {

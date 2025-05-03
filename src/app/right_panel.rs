@@ -1,8 +1,9 @@
-use super::{context_menu, models::ImageInfo, BlitzApp, Rating};
+use super::{models::ImageInfo, BlitzApp, Rating};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
 
-use std::
-    sync::{Arc, RwLock, RwLockReadGuard}
-;
+#[cfg(not(target_arch = "wasm32"))]
+use super::context_menu;
 
 impl BlitzApp {
     pub fn update_right_panel(&mut self, ctx: &egui::Context) {
@@ -16,19 +17,21 @@ impl BlitzApp {
             }
         });
     }
-    
 }
 
+#[allow(unused_variables)]
 fn render_photo_image(current_image: &ImageInfo, ui: &mut egui::Ui) {
     match current_image.rating {
         Rating::Unrated => {}
         Rating::Approve => {
+            #[cfg(not(target_arch = "wasm32"))]
             handle_approve_image(current_image, ui);
         }
         Rating::Remove => {}
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn handle_approve_image(photo: &ImageInfo, ui: &mut egui::Ui) {
     if let Ok(texture_handle) = photo.texture.try_lock() {
         let texture = texture_handle.as_ref();
@@ -38,7 +41,7 @@ fn handle_approve_image(photo: &ImageInfo, ui: &mut egui::Ui) {
                 let bytes: Arc<[u8]> = photo.data.clone();
                 let byte_path = format!("bytes://{}", photo.image_name);
                 egui::Image::from_bytes(byte_path, bytes).max_height(100.0)
-            },
+            }
         };
         let image_widget = ui.add(image);
         image_widget.context_menu(|ui| {

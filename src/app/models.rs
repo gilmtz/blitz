@@ -1,9 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex },
+    sync::{Arc, Mutex},
 };
 
-use super::{BlitzApp};
+use super::BlitzApp;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ImageInfo {
