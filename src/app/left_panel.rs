@@ -74,7 +74,7 @@ fn display_thumbnail(
         if image_widget.clicked() {
             *app_photo_index = index.clone()
         }
-        image_widget.context_menu(|ui| {
+        image_widget.context_menu(|_ui| {
             // context_menu::add_open_file_location_option(photo, ui);
             // context_menu::add_open_file_option(&owned_photo, ui);
         });

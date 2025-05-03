@@ -164,7 +164,7 @@ impl eframe::App for BlitzApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
         if let Ok(photos) = self.photos.try_read() {
-            save_culling_progress(&self.photo_dir, &*photos);
+            let _ = save_culling_progress(&self.photo_dir, &*photos);
         }
 
     }

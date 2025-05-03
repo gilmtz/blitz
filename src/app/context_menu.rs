@@ -1,5 +1,3 @@
-use std::sync::RwLockReadGuard;
-
 use super::models::ImageInfo;
 
 pub fn add_open_file_option(unwrapped_photo: ImageInfo, ui: &mut egui::Ui) {

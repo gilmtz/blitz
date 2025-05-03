@@ -50,13 +50,13 @@ impl BlitzApp {
 
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn hot_load_image(
+    fn _hot_load_image(
         &mut self,
         file_handle: FileHandle,
         max_width: f32,
         max_height: f32,
         ui: &mut egui::Ui,
-        ctx: &egui::Context,
+        _ctx: &egui::Context,
         current_image: &super::ImageInfo,
     ) -> egui::Response {
         let bytes: Arc<[u8]> = block_on(file_handle.read()).into();
@@ -148,14 +148,15 @@ fn display_image_with_bytes(
     max_width: f32,
     max_height: f32,
     ui: &mut egui::Ui,
-    ctx: &egui::Context,
+    _ctx: &egui::Context,
     current_image: &ImageInfo,
 ) -> egui::Response {
 
     let bytes: Arc<[u8]> = current_image.data.clone();
     let byte_path = format!("bytes://{}", current_image.image_name);
-    // let byte_path = "bytes://asdf.jpeg";
-    let image = egui::Image::from_bytes(byte_path, bytes);
+    let image = egui::Image::from_bytes(byte_path, bytes)
+        .max_width(max_width)
+        .max_height(max_height);
     let image_widget = ui.add(image);
     return image_widget;
 }
@@ -192,7 +193,7 @@ fn handle_hover_action(
     }
 }
 
-fn display_placeholder(ui: &mut egui::Ui, current_image: super::ImageInfo) -> egui::Response {
+fn _display_placeholder(ui: &mut egui::Ui, current_image: super::ImageInfo) -> egui::Response {
     ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(1500.0));
     ui.label(current_image.image_name.clone())
 }

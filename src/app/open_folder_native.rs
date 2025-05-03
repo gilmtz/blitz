@@ -66,9 +66,9 @@ impl BlitzApp {
         // self.photos_index = get_first_unrated_image_index(&self.photos);
         self.photos_index = 0;
 
-        let mut photos = (&self.photos).to_owned();
-        let max_texture_count = (&self.max_texture_count).to_owned();
-        let thread_ctx = ui.ctx().clone();
+        let _photos = (&self.photos).to_owned();
+        let _max_texture_count = (&self.max_texture_count).to_owned();
+        let _thread_ctx = ui.ctx().clone();
 
         // let _handler = thread::spawn(move || {
         //     if let Ok(photos) = photos.try_write() {
@@ -99,7 +99,7 @@ fn init_photos_state(
     }
 }
 
-fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
+fn _get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize {
     let mut counter: usize = 0;
     for image_lock in photos {
         let image = image_lock.read().unwrap().clone();
@@ -111,6 +111,7 @@ fn get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize 
     return counter;
 }
 
+#[allow(dead_code)]
 pub fn load_all_textures_into_memory(
     photos: &mut Vec<Arc<RwLock<ImageInfo>>>,
     ctx: egui::Context,

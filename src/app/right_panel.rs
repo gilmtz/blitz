@@ -1,8 +1,6 @@
 use super::{context_menu, models::ImageInfo, BlitzApp, Rating};
 
-use std::
-    sync::{Arc, RwLock, RwLockReadGuard}
-;
+use std::sync::Arc;
 
 impl BlitzApp {
     pub fn update_right_panel(&mut self, ctx: &egui::Context) {
