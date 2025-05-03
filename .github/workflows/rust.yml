@@ -196,7 +196,9 @@ jobs:
         cross build --verbose --release --target=${{ matrix.TARGET }}
 
     - name: Rename
-      run: cp target/${{ matrix.TARGET }}/release/blitz${{ matrix.EXTENSION }} blitz-${{ matrix.TARGET }}${{ matrix.EXTENSION }}
+      run: |
+        cp target/${{ matrix.TARGET }}/release/blitz${{ matrix.EXTENSION }} blitz-${{ matrix.TARGET }}${{ matrix.EXTENSION }}
+        chmod +x blitz-${{ matrix.TARGET }}${{ matrix.EXTENSION }}
 
     - uses: actions/upload-artifact@master
       with:
