@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
+use crate::app::models::{ImageInfo, Rating};
+use crate::BlitzApp;
 use egui::ImageSource;
-
-use super::{BlitzApp, ImageInfo, Rating};
+use std::sync::Arc;
 
 impl BlitzApp {
     pub fn update_left_panel(&mut self, ctx: &egui::Context) {

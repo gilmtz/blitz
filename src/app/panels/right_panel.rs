@@ -1,9 +1,10 @@
-use super::{models::ImageInfo, BlitzApp, Rating};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::app::context_menu;
+use crate::app::models::ImageInfo;
+use crate::app::models::Rating;
+use crate::BlitzApp;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
-
-#[cfg(not(target_arch = "wasm32"))]
-use super::context_menu;
 
 impl BlitzApp {
     pub fn update_right_panel(&mut self, ctx: &egui::Context) {

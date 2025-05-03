@@ -73,16 +73,12 @@ impl eframe::App for BlitzApp {
     }
 }
 
-mod center_panel;
 mod context_menu;
 mod file_operations;
-mod left_panel;
-mod menu_bar;
 mod models;
 mod navigation;
 #[cfg(not(target_arch = "wasm32"))]
 mod open_folder_native;
 #[cfg(target_arch = "wasm32")]
 mod open_folder_wasm;
-mod right_panel;
-mod top_panel;
+mod panels;

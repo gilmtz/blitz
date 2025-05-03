@@ -1,4 +1,4 @@
-use super::*;
+use crate::BlitzApp;
 
 impl BlitzApp {
     pub fn update_top_panel(&mut self, ctx: &egui::Context) {

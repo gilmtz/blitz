@@ -1,4 +1,4 @@
-use super::BlitzApp;
+use crate::BlitzApp;
 
 impl BlitzApp {
     pub fn setup_menu_bar(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {

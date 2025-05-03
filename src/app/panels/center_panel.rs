@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use super::{models::ImageInfo, BlitzApp};
-
+use crate::app::ImageInfo;
+use crate::BlitzApp;
 use egui::{Color32, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use futures::executor::block_on;
-
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileHandle;
 
@@ -68,7 +67,7 @@ fn _hot_load_image(
     max_height: f32,
     ui: &mut egui::Ui,
     _ctx: &egui::Context,
-    current_image: &super::ImageInfo,
+    current_image: &ImageInfo,
 ) -> egui::Response {
     let bytes: Arc<[u8]> = block_on(file_handle.read()).into();
     // let uri = format!("bytes://{}", current_image.image_name);
@@ -184,7 +183,7 @@ fn handle_hover_action(
     }
 }
 
-fn _display_placeholder(ui: &mut egui::Ui, current_image: super::ImageInfo) -> egui::Response {
+fn _display_placeholder(ui: &mut egui::Ui, current_image: ImageInfo) -> egui::Response {
     ui.add(egui::Image::new("file://assets/icon-1024.png").max_width(1500.0));
     ui.label(current_image.image_name.clone())
 }

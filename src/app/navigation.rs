@@ -107,7 +107,6 @@ pub fn get_previous_picture_index(starting_index: usize, photos: &[ImageInfo]) -
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
