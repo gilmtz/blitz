@@ -26,7 +26,6 @@ pub struct BlitzApp {
     pub max_texture_count: usize,
 }
 
-
 impl BlitzApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -35,7 +34,6 @@ impl BlitzApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-
 
         if let Some(storage) = cc.storage {
             let persisted_state: BlitzApp =
@@ -58,17 +56,14 @@ impl BlitzApp {
 
     fn handle_user_input(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open folder…").clicked() {
-            
-                // save_culling_progress(&self.photo_dir, photos);
-    
+            // save_culling_progress(&self.photo_dir, photos);
+
             #[cfg(not(target_arch = "wasm32"))]
             if let Some(path) = pick_folder() {
                 self.open_folder_action(ui, path);
             }
             #[cfg(target_arch = "wasm32")]
             let _ = self.open_folder_action();
-        
-            
         }
 
         if ui.button("Commit choices").clicked() {
@@ -114,7 +109,7 @@ impl BlitzApp {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
         };
-    
+
         match fs::create_dir_all(&self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
@@ -122,13 +117,13 @@ impl BlitzApp {
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
         if let Ok(photos) = self.photos.try_read() {
-            commit_culling(&*photos,chaffe_dir,wheat_dir);
-        }   
-        
+            commit_culling(&*photos, chaffe_dir, wheat_dir);
+        }
+
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
-    
+
     fn get_chaffe_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
         match &self.chaffe_dir_target {
             Some(target_dir) => target_dir.clone(),
@@ -136,10 +131,10 @@ impl BlitzApp {
                 let mut chaffe_dir = root_dir.clone();
                 chaffe_dir.push("chaffe");
                 return chaffe_dir;
-            },
+            }
         }
     }
-    
+
     fn get_wheat_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
         match &self.wheat_dir_target {
             Some(target_dir) => target_dir.clone(),
@@ -147,12 +142,10 @@ impl BlitzApp {
                 let mut wheat_dir = root_dir.clone();
                 wheat_dir.push("wheat");
                 return wheat_dir;
-            },
+            }
         }
     }
 }
-
-
 
 #[cfg(not(target_arch = "wasm32"))]
 fn pick_folder() -> Option<PathBuf> {
@@ -167,7 +160,6 @@ impl eframe::App for BlitzApp {
         if let Ok(photos) = self.photos.try_read() {
             let _ = save_culling_progress(&self.photo_dir, &*photos);
         }
-
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -192,8 +184,7 @@ fn go_to_next_picture(template_app: &mut BlitzApp) {
             Some(index) => {
                 log::info!("Moving to index: {}", index);
                 template_app.photos_index = index;
-    
-            },
+            }
             None => todo!("we rated everything so now we die"),
         }
     }
@@ -220,7 +211,12 @@ fn commit_culling(
     return committing_results;
 }
 
-fn handle_image_cull(chaffe_dir: &PathBuf, wheat_dir: &PathBuf, committing_results: &mut Vec<Result<(), io::Error>>, image: &ImageInfo) {
+fn handle_image_cull(
+    chaffe_dir: &PathBuf,
+    wheat_dir: &PathBuf,
+    committing_results: &mut Vec<Result<(), io::Error>>,
+    image: &ImageInfo,
+) {
     match image.rating {
         Rating::Unrated => {}
         Rating::Approve => {
@@ -249,7 +245,7 @@ fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Result<()>  {
+fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Result<()> {
     // This handles the initial opening case
     if photos.is_empty() {
         return Ok(());
@@ -267,16 +263,13 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Re
     // Serialize and write
     let ron_str = ron::ser::to_string_pretty(&photos, PrettyConfig::new())
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-    
+
     fs::write(blitz_dir, ron_str)?;
 
     Ok(())
 }
 
-fn get_next_picture_index(
-    starting_index: usize,
-    photos: &Vec<ImageInfo>,
-) -> Option<usize> {
+fn get_next_picture_index(starting_index: usize, photos: &Vec<ImageInfo>) -> Option<usize> {
     log::info!("Get next picture index");
     let mut candidate_index = starting_index.clone();
     loop {
@@ -293,10 +286,7 @@ fn get_next_picture_index(
     }
 }
 
-fn get_previous_picture_index(
-    starting_index: usize,
-    photos: &Vec<ImageInfo>,
-) -> Option<usize> {
+fn get_previous_picture_index(starting_index: usize, photos: &Vec<ImageInfo>) -> Option<usize> {
     let mut candidate_index = starting_index.clone();
     loop {
         if candidate_index == 0 {
@@ -326,7 +316,7 @@ mod tests {
             rating: Rating::Unrated,
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
-            data: [].into()
+            data: [].into(),
         });
         test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -335,7 +325,6 @@ mod tests {
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
             data: [].into(),
-
         });
         test_photos.push(ImageInfo {
             path_processed: PathBuf::from("/tmp/DSC55555.jpg"),
@@ -344,7 +333,6 @@ mod tests {
             texture: Arc::new(Mutex::new(None)),
             image_name: "/tmp/DSC55555.jpg".to_string(),
             data: [].into(),
-
         });
 
         let next_picture_index = get_next_picture_index(0, &test_photos);
@@ -566,13 +554,13 @@ mod tests {
     }
 }
 
-mod models;
-mod right_panel;
-mod left_panel;
 mod center_panel;
 mod context_menu;
+mod left_panel;
 mod menu_bar;
+mod models;
 #[cfg(not(target_arch = "wasm32"))]
 mod open_folder_native;
 #[cfg(target_arch = "wasm32")]
 mod open_folder_wasm;
+mod right_panel;

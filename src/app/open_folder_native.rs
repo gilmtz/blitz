@@ -10,11 +10,15 @@ use egui::{ColorImage, TextureHandle};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::JsFuture;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array}, window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle, FileSystemHandle, FileSystemHandleKind};
+use wasm_bindgen_futures::JsFuture;
+#[cfg(target_arch = "wasm32")]
+use web_sys::{
+    js_sys::{self, ArrayBuffer, AsyncIterator, Promise, Uint8Array},
+    window, DirectoryPickerOptions, File, FileSystemDirectoryHandle, FileSystemFileHandle,
+    FileSystemHandle, FileSystemHandleKind,
+};
 
 use super::{BlitzApp, ImageInfo, Rating};
 
@@ -40,7 +44,7 @@ impl BlitzApp {
         //                     &mut self.photos,
         //                     Some(stored_images),
         //                 );
-                        
+
         //             }
         //             Err(_) => todo!("failed to deserialized the previous state"),
         //         }
@@ -55,13 +59,8 @@ impl BlitzApp {
         // }
 
         if let Ok(mut photos) = self.photos.try_write() {
-            init_photos_state(
-                self.photo_dir.clone(),
-                &mut *photos,
-                None,
-            );
+            init_photos_state(self.photo_dir.clone(), &mut *photos, None);
         }
-        
 
         // self.photos_index = get_first_unrated_image_index(&self.photos);
         self.photos_index = 0;
@@ -74,7 +73,7 @@ impl BlitzApp {
         //     if let Ok(photos) = photos.try_write() {
         //         load_all_textures_into_memory(&mut photos, thread_ctx, max_texture_count);
         //     }
-            
+
         // });
     }
 }
@@ -139,12 +138,18 @@ fn init_image_info(
         None => {
             println!("Couldn't get extension for {:?}", entry_path);
             return None;
-        },
+        }
     };
     if !is_file_extension_supported(file_extension) {
         return None;
     }
-    let filename = dir_entry.path().file_name().unwrap().to_str().unwrap().to_string();
+    let filename = dir_entry
+        .path()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     let data: Arc<[u8]> = match fs::read(dir_entry.path().clone()) {
         Ok(result) => result.into(),
         Err(_) => return None, // If we can't read the image we just skip it

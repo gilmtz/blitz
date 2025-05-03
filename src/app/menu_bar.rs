@@ -1,9 +1,7 @@
 use super::BlitzApp;
 
-
-
 impl BlitzApp {
-    pub fn setup_menu_bar(&mut self,ctx: &egui::Context, ui: &mut egui::Ui) {
+    pub fn setup_menu_bar(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         // NOTE: no File->Quit on web pages!
         let is_web = cfg!(target_arch = "wasm32");
         if !is_web {
@@ -20,7 +18,7 @@ impl BlitzApp {
                 // }
 
                 ui.add_space(10.0);
-    
+
                 // if ui.button("Choose Chaffe Dir").clicked() {
                 //     self.chaffe_dir_target = rfd::FileDialog::new().pick_folder();
                 //     ui.close_menu();
@@ -28,7 +26,7 @@ impl BlitzApp {
             });
             ui.add_space(16.0);
         }
-    
+
         egui::widgets::global_theme_preference_buttons(ui);
     }
 }

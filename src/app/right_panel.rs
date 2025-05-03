@@ -17,7 +17,6 @@ impl BlitzApp {
             }
         });
     }
-    
 }
 
 #[allow(unused_variables)]
@@ -42,7 +41,7 @@ fn handle_approve_image(photo: &ImageInfo, ui: &mut egui::Ui) {
                 let bytes: Arc<[u8]> = photo.data.clone();
                 let byte_path = format!("bytes://{}", photo.image_name);
                 egui::Image::from_bytes(byte_path, bytes).max_height(100.0)
-            },
+            }
         };
         let image_widget = ui.add(image);
         image_widget.context_menu(|ui| {

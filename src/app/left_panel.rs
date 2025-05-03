@@ -1,6 +1,4 @@
-use std::
-    sync::Arc
-;
+use std::sync::Arc;
 
 use egui::ImageSource;
 
@@ -16,18 +14,13 @@ impl BlitzApp {
                     for (index, photo) in photos.iter().enumerate() {
                         render_photo_item(photo, ui, index, &mut self.photos_index);
                     }
-                } 
+                }
             });
         });
     }
 }
 
-fn render_photo_item(
-    photo: &ImageInfo,
-    ui: &mut egui::Ui,
-    index: usize,
-    photos_index: &mut usize,
-) {
+fn render_photo_item(photo: &ImageInfo, ui: &mut egui::Ui, index: usize, photos_index: &mut usize) {
     let owned_photo = photo;
     match owned_photo.rating {
         Rating::Unrated => render_unrated_photo(photo, ui, index, photos_index),
@@ -40,26 +33,29 @@ fn render_unrated_photo(
     photo: &ImageInfo,
     ui: &mut egui::Ui,
     index: usize,
-    photos_index: &mut usize
-) { 
+    photos_index: &mut usize,
+) {
     display_thumbnail(ui, index, &photo, photos_index);
 }
 
 fn display_thumbnail(
-    ui: &mut egui::Ui, 
-    index: usize, 
-    photo: &ImageInfo, 
+    ui: &mut egui::Ui,
+    index: usize,
+    photo: &ImageInfo,
     app_photo_index: &mut usize,
 ) {
     if let Ok(texture_handle_guard) = (&photo.texture).try_lock() {
-        let image_source:ImageSource<'_> = match *texture_handle_guard {
+        let image_source: ImageSource<'_> = match *texture_handle_guard {
             Some(ref texture) => texture.into(),
             None => {
                 // "file://assets/icon-1024.png".into()
                 let bytes: Arc<[u8]> = photo.data.clone();
                 let byte_path = format!("bytes://{}", photo.image_name);
-                ImageSource::Bytes { uri:byte_path.into(), bytes: egui::load::Bytes::Shared(bytes) }
-            },
+                ImageSource::Bytes {
+                    uri: byte_path.into(),
+                    bytes: egui::load::Bytes::Shared(bytes),
+                }
+            }
         };
 
         let image = egui::Image::new(image_source)
@@ -80,6 +76,4 @@ fn display_thumbnail(
         });
         ui.label(photo.image_name.clone());
     };
-    
-    
 }

@@ -21,18 +21,16 @@ impl BlitzApp {
             );
             self.handle_user_input(ctx, ui);
 
-
             if let Ok(photos) = self.photos.try_read() {
                 if !photos.is_empty() {
                     if let Some(current_image) = photos.get(photos_index) {
                         let max_height = ui.available_height();
-                            let max_width = ui.available_width();
-    
-                            display_image(max_width, max_height, ui, ctx, current_image);   
+                        let max_width = ui.available_width();
+
+                        display_image(max_width, max_height, ui, ctx, current_image);
                     }
                 }
             }
-
 
             ui.separator();
 
@@ -47,7 +45,6 @@ impl BlitzApp {
             });
         });
     }
-
 
     #[cfg(not(target_arch = "wasm32"))]
     fn _hot_load_image(
@@ -113,13 +110,13 @@ fn display_image(
             match &*texture_guard {
                 Some(texture) => {
                     let image = egui::Image::new(texture)
-                    .max_width(max_width)
-                    .max_height(max_height)
-                    .sense(egui::Sense {
-                        click: false,
-                        drag: true,
-                        focusable: false,
-                    });
+                        .max_width(max_width)
+                        .max_height(max_height)
+                        .sense(egui::Sense {
+                            click: false,
+                            drag: true,
+                            focusable: false,
+                        });
                     let image_widget = ui.add(image);
                     // vec2
                     if image_widget.dragged() {
@@ -132,17 +129,13 @@ fn display_image(
                         // println!("{}", image_widget.rect);
                     }
                     ui.label(current_image.image_name.clone())
-                },
-                None => {
-                    display_image_with_bytes(max_width, max_height, ui, ctx, current_image)
-                },
+                }
+                None => display_image_with_bytes(max_width, max_height, ui, ctx, current_image),
             }
-            
-        },
+        }
         Err(_) => todo!("didn't handle the err in display image"),
-    }     
+    }
 }
-
 
 fn display_image_with_bytes(
     max_width: f32,
@@ -151,7 +144,6 @@ fn display_image_with_bytes(
     _ctx: &egui::Context,
     current_image: &ImageInfo,
 ) -> egui::Response {
-
     let bytes: Arc<[u8]> = current_image.data.clone();
     let byte_path = format!("bytes://{}", current_image.image_name);
     let image = egui::Image::from_bytes(byte_path, bytes)
