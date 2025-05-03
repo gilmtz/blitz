@@ -51,7 +51,6 @@ impl BlitzApp {
     }
 }
 
-
 pub fn go_to_next_picture(template_app: &mut BlitzApp) {
     log::info!("Go to next picture");
     if let Ok(photos) = template_app.photos.try_read() {

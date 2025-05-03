@@ -1,7 +1,6 @@
 use super::*;
 
 impl BlitzApp {
-
     pub fn update_top_panel(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
@@ -11,5 +10,4 @@ impl BlitzApp {
             });
         });
     }
-    
 }

@@ -14,9 +14,7 @@ use ron::ser::PrettyConfig;
 
 use crate::app::navigation::{get_next_picture_index, get_previous_picture_index};
 
-
 impl BlitzApp {
-
     #[allow(unused_variables)]
     pub fn commit_choices(&mut self, ui: &mut egui::Ui) {
         match fs::create_dir_all(self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
@@ -127,7 +125,6 @@ pub fn save_culling_progress(photo_dir: &Path, photos: &Vec<ImageInfo>) -> io::R
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
