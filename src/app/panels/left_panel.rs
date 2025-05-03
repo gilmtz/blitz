@@ -71,8 +71,8 @@ fn display_thumbnail(
         }
         #[cfg(not(target_arch = "wasm32"))]
         image_widget.context_menu(|_ui| {
-            context_menu::add_open_file_location_option(&photo, ui);
-            context_menu::add_open_file_option(&photo, ui);
+            context_menu::add_open_file_location_option(photo, ui);
+            context_menu::add_open_file_option(photo, ui);
         });
         ui.label(photo.image_name.clone());
     };

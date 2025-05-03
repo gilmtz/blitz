@@ -37,7 +37,7 @@ impl BlitzApp {
         match fs::read(blitz_dir.clone()) {
             Ok(seralized_ron) => match ron::de::from_bytes::<Vec<ImageInfo>>(&seralized_ron) {
                 Ok(stored_state) => {
-                    let mut photos: Vec<ImageInfo> = Vec::new().into();
+                    let mut photos: Vec<ImageInfo> = Vec::new();
                     init_photos_state(&(self.photo_dir), &mut photos, Some(stored_state));
                     self.photos_index = get_first_unrated_image_index(&photos);
                     self.photos = Arc::new(photos.into());
@@ -67,11 +67,11 @@ impl BlitzApp {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn init_photos_state(
-    photo_dir: &PathBuf,
+    photo_dir: &Path,
     photos: &mut Vec<ImageInfo>,
     stored_photos: Option<Vec<ImageInfo>>,
 ) {
-    let paths = fs::read_dir(photo_dir.clone()).unwrap();
+    let paths = fs::read_dir(photo_dir).unwrap();
     for path in paths {
         let x = path.unwrap();
         match x.path().is_file() {
@@ -94,9 +94,9 @@ fn get_first_unrated_image_index(photos: &[ImageInfo]) -> usize {
             }
             counter += 1;
         }
-        return counter;
+        counter
     } else {
-        return 0;
+        0
     }
 }
 
@@ -234,9 +234,9 @@ fn get_rating_for_image(stored_photos: &Option<Vec<ImageInfo>>, image_path: Path
                     return image.rating.clone();
                 }
             }
-            return Rating::Unrated;
+            Rating::Unrated
         }
-        None => return Rating::Unrated,
+        None => Rating::Unrated,
     }
 }
 
