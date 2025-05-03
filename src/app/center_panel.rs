@@ -149,8 +149,8 @@ fn display_image_with_bytes(
     let image = egui::Image::from_bytes(byte_path, bytes)
         .max_width(max_width)
         .max_height(max_height);
-    let image_widget = ui.add(image);
-    return image_widget;
+
+    ui.add(image)
 }
 
 fn handle_hover_action(

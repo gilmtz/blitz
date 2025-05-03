@@ -1,6 +1,7 @@
 use std::{
     ffi::OsString,
     fs::{self},
+    path::Path,
     path::PathBuf,
     sync::{Arc, Mutex, RwLock},
 };
@@ -59,14 +60,14 @@ impl BlitzApp {
         // }
 
         if let Ok(mut photos) = self.photos.try_write() {
-            init_photos_state(self.photo_dir.clone(), &mut *photos, None);
+            init_photos_state(self.photo_dir.clone(), &mut photos, None);
         }
 
         // self.photos_index = get_first_unrated_image_index(&self.photos);
         self.photos_index = 0;
 
-        let _photos = (&self.photos).to_owned();
-        let _max_texture_count = (&self.max_texture_count).to_owned();
+        let _photos = self.photos.to_owned();
+        let _max_texture_count = self.max_texture_count.to_owned();
         let _thread_ctx = ui.ctx().clone();
 
         // let _handler = thread::spawn(move || {
@@ -107,7 +108,7 @@ fn _get_first_unrated_image_index(photos: &Vec<Arc<RwLock<ImageInfo>>>) -> usize
         }
         counter += 1;
     }
-    return counter;
+    counter
 }
 
 #[allow(dead_code)]
@@ -120,10 +121,9 @@ pub fn load_all_textures_into_memory(
     for image_info in photos {
         if image_info.read().unwrap().rating == Rating::Unrated
             && texture_counter < max_texture_count
+            && load_texture_into_memory(image_info, ctx.clone()).is_some()
         {
-            if let Some(_) = load_texture_into_memory(image_info, ctx.clone()) {
-                texture_counter += 1
-            }
+            texture_counter += 1
         }
     }
 }
@@ -161,7 +161,7 @@ fn init_image_info(
         rating: get_rating_for_image(stored_photos, dir_entry.path().clone()),
         texture: Arc::new(Mutex::new(None)),
         image_name: filename,
-        data: data,
+        data,
     };
     Some(image_info)
 }
@@ -203,11 +203,11 @@ fn is_file_extension_supported(extension: OsString) -> bool {
     if extension == "jpg" {
         return true;
     }
-    return false;
+    false
 }
 
-fn get_raw_variant(processed_path: &PathBuf) -> Option<PathBuf> {
-    let mut raw_path = processed_path.clone();
+fn get_raw_variant(processed_path: &Path) -> Option<PathBuf> {
+    let mut raw_path = processed_path.to_path_buf();
     match raw_path.set_extension("RAF") {
         true => Some(raw_path),
         false => None,
@@ -226,7 +226,7 @@ fn get_rating_for_image(
                     return image.rating;
                 }
             }
-            return Rating::Unrated;
+            Rating::Unrated
         }
         None => Rating::Unrated,
     }

@@ -1,7 +1,7 @@
 use std::{
     fs::{self},
     io::{self},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, RwLock},
 };
 
@@ -105,43 +105,43 @@ impl BlitzApp {
 
     #[allow(unused_variables)]
     fn commit_choices(&mut self, ui: &mut egui::Ui) {
-        match fs::create_dir_all(&self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
+        match fs::create_dir_all(self.get_chaffe_dir(&(self.photo_dir.clone())).clone()) {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
         };
 
-        match fs::create_dir_all(&self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
+        match fs::create_dir_all(self.get_wheat_dir(&(self.photo_dir.clone())).clone()) {
             Ok(it) => it,
             Err(_err) => todo!("handle when we can't make directories later"),
         };
         let chaffe_dir = &self.get_chaffe_dir(&(self.photo_dir.clone()));
         let wheat_dir = &self.get_wheat_dir(&(self.photo_dir.clone()));
         if let Ok(photos) = self.photos.try_read() {
-            commit_culling(&*photos, chaffe_dir, wheat_dir);
+            commit_culling(&photos, chaffe_dir, wheat_dir);
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         self.open_folder_action(ui, self.photo_dir.clone());
     }
 
-    fn get_chaffe_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
+    fn get_chaffe_dir(&mut self, root_dir: &Path) -> PathBuf {
         match &self.chaffe_dir_target {
             Some(target_dir) => target_dir.clone(),
             None => {
-                let mut chaffe_dir = root_dir.clone();
+                let mut chaffe_dir = root_dir.to_path_buf();
                 chaffe_dir.push("chaffe");
-                return chaffe_dir;
+                chaffe_dir
             }
         }
     }
 
-    fn get_wheat_dir(&mut self, root_dir: &PathBuf) -> PathBuf {
+    fn get_wheat_dir(&mut self, root_dir: &Path) -> PathBuf {
         match &self.wheat_dir_target {
             Some(target_dir) => target_dir.clone(),
             None => {
-                let mut wheat_dir = root_dir.clone();
+                let mut wheat_dir = root_dir.to_path_buf();
                 wheat_dir.push("wheat");
-                return wheat_dir;
+                wheat_dir
             }
         }
     }
@@ -158,7 +158,7 @@ impl eframe::App for BlitzApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
 
         if let Ok(photos) = self.photos.try_read() {
-            let _ = save_culling_progress(&self.photo_dir, &*photos);
+            let _ = save_culling_progress(&self.photo_dir, &photos);
         }
     }
 
@@ -180,7 +180,7 @@ impl eframe::App for BlitzApp {
 fn go_to_next_picture(template_app: &mut BlitzApp) {
     log::info!("Go to next picture");
     if let Ok(photos) = template_app.photos.try_read() {
-        match get_next_picture_index(template_app.photos_index.clone(), &*photos) {
+        match get_next_picture_index(template_app.photos_index, &photos) {
             Some(index) => {
                 log::info!("Moving to index: {}", index);
                 template_app.photos_index = index;
@@ -192,7 +192,7 @@ fn go_to_next_picture(template_app: &mut BlitzApp) {
 
 fn go_to_previous_picture(template_app: &mut BlitzApp) {
     if let Ok(photos) = template_app.photos.try_read() {
-        match get_previous_picture_index(template_app.photos_index.clone(), &*photos) {
+        match get_previous_picture_index(template_app.photos_index, &photos) {
             Some(index) => template_app.photos_index = index,
             None => todo!("we rated everything so now we die"),
         }
@@ -200,57 +200,54 @@ fn go_to_previous_picture(template_app: &mut BlitzApp) {
 }
 
 fn commit_culling(
-    photos: &Vec<ImageInfo>,
-    chaffe_dir: &PathBuf,
-    wheat_dir: &PathBuf,
+    photos: &[ImageInfo],
+    chaffe_dir: &Path,
+    wheat_dir: &Path,
 ) -> Vec<Result<(), io::Error>> {
     let mut committing_results = vec![];
     for image in photos.iter() {
         handle_image_cull(chaffe_dir, wheat_dir, &mut committing_results, image);
     }
-    return committing_results;
+    committing_results
 }
 
 fn handle_image_cull(
-    chaffe_dir: &PathBuf,
-    wheat_dir: &PathBuf,
+    chaffe_dir: &Path,
+    wheat_dir: &Path,
     committing_results: &mut Vec<Result<(), io::Error>>,
     image: &ImageInfo,
 ) {
     match image.rating {
         Rating::Unrated => {}
         Rating::Approve => {
-            committing_results.push(move_image_into_dir(&wheat_dir, &image));
+            committing_results.push(move_image_into_dir(wheat_dir, image));
         }
         Rating::Remove => {
-            committing_results.push(move_image_into_dir(&chaffe_dir, &image));
+            committing_results.push(move_image_into_dir(chaffe_dir, image));
         }
     }
 }
 
-fn move_image_into_dir(destination_dir: &PathBuf, image: &ImageInfo) -> Result<(), std::io::Error> {
-    let mut processed_image_destination = destination_dir.clone();
+fn move_image_into_dir(destination_dir: &Path, image: &ImageInfo) -> Result<(), std::io::Error> {
+    let mut processed_image_destination = destination_dir.to_path_buf();
     processed_image_destination.push(image.image_name.clone());
     fs::rename(image.path_processed.clone(), processed_image_destination)?;
 
-    match &image.path_raw {
-        Some(path_raw) => {
-            let mut raw_image_destination = destination_dir.clone();
-            raw_image_destination.push(image.image_name.clone());
-            raw_image_destination.set_extension("RAF");
-            fs::rename(path_raw.clone(), raw_image_destination)?;
-        }
-        None => {}
+    if let Some(path_raw) = &image.path_raw {
+        let mut raw_image_destination = destination_dir.to_path_buf();
+        raw_image_destination.push(image.image_name.clone());
+        raw_image_destination.set_extension("RAF");
+        fs::rename(path_raw.clone(), raw_image_destination)?;
     }
     Ok(())
 }
 
-fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Result<()> {
+fn save_culling_progress(photo_dir: &Path, photos: &Vec<ImageInfo>) -> io::Result<()> {
     // This handles the initial opening case
     if photos.is_empty() {
         return Ok(());
     }
-    let mut blitz_dir = photo_dir.clone();
+    let mut blitz_dir = photo_dir.to_path_buf();
     blitz_dir.push(".blitz");
 
     match fs::create_dir_all(blitz_dir.clone()) {
@@ -269,9 +266,9 @@ fn save_culling_progress(photo_dir: &PathBuf, photos: &Vec<ImageInfo>) -> io::Re
     Ok(())
 }
 
-fn get_next_picture_index(starting_index: usize, photos: &Vec<ImageInfo>) -> Option<usize> {
+fn get_next_picture_index(starting_index: usize, photos: &[ImageInfo]) -> Option<usize> {
     log::info!("Get next picture index");
-    let mut candidate_index = starting_index.clone();
+    let mut candidate_index = starting_index;
     loop {
         candidate_index += 1;
         if candidate_index >= photos.len() {
@@ -286,13 +283,13 @@ fn get_next_picture_index(starting_index: usize, photos: &Vec<ImageInfo>) -> Opt
     }
 }
 
-fn get_previous_picture_index(starting_index: usize, photos: &Vec<ImageInfo>) -> Option<usize> {
-    let mut candidate_index = starting_index.clone();
+fn get_previous_picture_index(starting_index: usize, photos: &[ImageInfo]) -> Option<usize> {
+    let mut candidate_index = starting_index;
     loop {
         if candidate_index == 0 {
             candidate_index = photos.len() - 1;
         } else {
-            candidate_index = candidate_index - 1;
+            candidate_index -= 1;
         }
         if photos[candidate_index].rating == Rating::Unrated {
             return Some(candidate_index);
@@ -548,8 +545,8 @@ mod tests {
     }
 
     fn assert_identical_files(src_path_string: &str, dest_path_string: &str) {
-        let source_bytes = fs::read(&src_path_string).unwrap();
-        let dest_bytes = fs::read(&dest_path_string).unwrap();
+        let source_bytes = fs::read(src_path_string).unwrap();
+        let dest_bytes = fs::read(dest_path_string).unwrap();
         assert_eq!(source_bytes, dest_bytes);
     }
 }

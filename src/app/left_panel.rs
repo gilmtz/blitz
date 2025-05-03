@@ -35,7 +35,7 @@ fn render_unrated_photo(
     index: usize,
     photos_index: &mut usize,
 ) {
-    display_thumbnail(ui, index, &photo, photos_index);
+    display_thumbnail(ui, index, photo, photos_index);
 }
 
 fn display_thumbnail(
@@ -44,7 +44,7 @@ fn display_thumbnail(
     photo: &ImageInfo,
     app_photo_index: &mut usize,
 ) {
-    if let Ok(texture_handle_guard) = (&photo.texture).try_lock() {
+    if let Ok(texture_handle_guard) = photo.texture.try_lock() {
         let image_source: ImageSource<'_> = match *texture_handle_guard {
             Some(ref texture) => texture.into(),
             None => {
@@ -68,7 +68,7 @@ fn display_thumbnail(
 
         let image_widget = ui.add(image);
         if image_widget.clicked() {
-            *app_photo_index = index.clone()
+            *app_photo_index = index
         }
         image_widget.context_menu(|_ui| {
             // context_menu::add_open_file_location_option(photo, ui);
